@@ -25,13 +25,12 @@ const FRAME_SIZE = 200;
 const FRAME_FPS = 8;
 const FRAME_INTERVAL_MS = 1000 / FRAME_FPS;
 
-// Two-hand rotation: each frame's hand-twist Δangle becomes an angular-
-// velocity impulse with strong momentum + very slow decay (OIIA-cat tornado
-// feel). Even tiny wrist twists pile up to the cap fast and the pet keeps
-// spinning for several seconds afterwards.
-const TWO_HAND_ROT_IMPULSE = 25;
-const ROT_DECAY = 0.98;
-const ROT_VELOCITY_MAX = 70; // deg per rAF tick (≈60fps) → ≈11 rotations/sec
+// Two-hand rotation: hand-twist Δangle becomes angular-velocity impulse
+// with momentum + decay. Tuned for meme-y but controllable — quick twists
+// build a fast spin, hand stop → pet slows over ~1 second.
+const TWO_HAND_ROT_IMPULSE = 10;
+const ROT_DECAY = 0.93;
+const ROT_VELOCITY_MAX = 28; // deg per rAF tick (≈60fps) → ≈4.5 rotations/sec
 const ROT_VELOCITY_FLOOR = 0.05;
 
 // Scale gestures — multiplies pet base size:
