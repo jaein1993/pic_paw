@@ -541,7 +541,7 @@ export function Compose() {
 
       <div
         ref={containerRef}
-        className="relative w-full max-w-md aspect-square overflow-hidden bg-black border-2 border-ink shadow-theme"
+        className="relative w-full max-w-md aspect-square max-h-[45vh] sm:max-h-none mx-auto overflow-hidden bg-black border-2 border-ink shadow-theme"
       >
         <video
           ref={videoRef}
@@ -628,7 +628,7 @@ export function Compose() {
         </button>
       </div>
 
-      <div className="w-full max-w-md grid grid-cols-3 gap-2">
+      <div className="w-full max-w-md grid grid-cols-2 gap-2">
         <Button
           type="button"
           variant={petPlacementLocked ? 'secondary' : 'primary'}
@@ -650,9 +650,12 @@ export function Compose() {
         >
           위치 초기화
         </Button>
+      </div>
+
+      <div className="w-full max-w-md">
         <Button
           type="button"
-          variant={rotationEnabled ? 'secondary' : 'secondary'}
+          variant={rotationEnabled ? 'secondary' : 'ghost'}
           onClick={() => {
             if (rotationEnabled) {
               setRotationEnabled(false);
@@ -668,7 +671,7 @@ export function Compose() {
           className="w-full"
           aria-pressed={rotationEnabled}
         >
-          {rotationEnabled ? '🌀 회전 OFF' : '🌀 회전 ON'}
+          {rotationEnabled ? '🌀 회전기능 제거' : '🌀 회전기능 추가'}
         </Button>
       </div>
 
