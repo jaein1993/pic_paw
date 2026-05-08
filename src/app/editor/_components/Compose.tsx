@@ -28,21 +28,21 @@ const FRAME_INTERVAL_MS = 1000 / FRAME_FPS;
 // Tornado-mode spin engine: hand swirling around its own moving centroid feeds
 // angular impulse into the pet image. OIIA-cat style — accumulates with
 // momentum, decays on its own.
-const SPIN_AMPLIFY = 12;
-const SPIN_DECAY = 0.93;
-const SPIN_VELOCITY_MAX = 35; // deg per rAF tick (~60fps cap)
-const SPIN_VELOCITY_FLOOR = 0.05;
+const SPIN_AMPLIFY = 22;
+const SPIN_DECAY = 0.94;
+const SPIN_VELOCITY_MAX = 45; // deg per rAF tick (~60fps cap)
+const SPIN_VELOCITY_FLOOR = 0.02;
 const HAND_HISTORY_LEN = 5;
 
 // Scale gestures — multiplies pet base size:
 //   • Two hands visible: distance between palms → scale
 //   • One hand: thumb-index pinch distance → scale
-const SCALE_MIN = 0.4;
-const SCALE_MAX = 2.0;
+const SCALE_MIN = 0.35;
+const SCALE_MAX = 2.2;
 const SCALE_DEFAULT = 1.0;
-const SCALE_SMOOTH = 0.18;
-const TWO_HAND_SCALE_MULT = 2.8;
-const PINCH_SCALE_MULT = 11;
+const SCALE_SMOOTH = 0.22;
+const TWO_HAND_SCALE_MULT = 3.5;
+const PINCH_SCALE_MULT = 16;
 
 function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
   const [size, setSize] = useState(360);

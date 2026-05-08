@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useEditorState } from '@/app/editor/_hooks/useEditorState';
 import { Header } from '@/shared/components/layout/Header';
 import { PetUpload } from './PetUpload';
@@ -16,7 +17,14 @@ const STEP_LABELS = [
 ];
 
 export default function EditorContainer() {
-  const { currentStep, setStep } = useEditorState();
+  const { currentStep, setStep, reset } = useEditorState();
+
+  // Each fresh visit to /editor starts at Step 1 with a clean store —
+  // otherwise navigating Home → 시작하기 lands on the previous shots.
+  useEffect(() => {
+    reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-canvas flex flex-col">
