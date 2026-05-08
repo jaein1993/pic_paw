@@ -606,6 +606,20 @@ export function Compose() {
         </div>
 
 
+        {/* Subtle cursor showing where the system thinks the hand is. Helps
+         * the user confirm hand-tracking is alive without being a distracting
+         * red dot. Hidden during capture freeze. */}
+        {handTrackingEnabled && handPoint && !captureFrozen && (
+          <div
+            aria-hidden
+            className="absolute w-2.5 h-2.5 rounded-full bg-white/70 border border-ink/60 pointer-events-none"
+            style={{
+              left: handPoint.x * size - 5,
+              top: handPoint.y * size - 5,
+            }}
+          />
+        )}
+
         {countdown !== null && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/25 text-white text-9xl font-display pointer-events-none select-none">
             {countdown}
@@ -630,7 +644,14 @@ export function Compose() {
       {cameraError && <p className="text-sm text-red-500">{cameraError}</p>}
 
       <div className="w-full max-w-md flex items-center justify-between gap-2 text-xs text-ink/70">
-        <span className="font-mono tracking-wider">{handStatusLabel[handStatus]}</span>
+        <span className="font-mono tracking-wider">
+          {handStatusLabel[handStatus]}
+          {handStatus === 'ready' && handPoint && (
+            <span className="ml-2 text-ink/50">
+              ✊{pinchDistance !== null ? pinchDistance.toFixed(2) : '?'} ✋{palmExtension !== null ? palmExtension.toFixed(2) : '?'}
+            </span>
+          )}
+        </span>
         <button
           type="button"
           onClick={() => {
