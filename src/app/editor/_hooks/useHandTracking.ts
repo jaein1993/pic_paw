@@ -27,8 +27,11 @@ const VISION_BUNDLE_URL =
   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs';
 const WASM_BASE_URL =
   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm';
+// Pin to version "1" (the only published numeric version of this model). The
+// `latest` alias historically silently redirected to newer / different model
+// builds and was suspected of regressing mobile detection.
 const HAND_MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
+  'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 
 // We average wrist (0) + middle finger MCP (9) for a stable palm centroid.
 const PALM_INDICES = [0, 9];
@@ -122,6 +125,13 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
             baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate },
             runningMode: 'VIDEO',
             numHands: 2,
+            // Lower the confidence floors from the default 0.5 → 0.3. On
+            // mobile front cameras (lower contrast, harsher exposure, partly
+            // occluded palms) the default is too strict and the model
+            // silently rejects valid hands. 0.3 still filters obvious noise.
+            minHandDetectionConfidence: 0.3,
+            minHandPresenceConfidence: 0.3,
+            minTrackingConfidence: 0.3,
           })) as HandLandmarkerInstance;
         let lm: HandLandmarkerInstance;
         try {
