@@ -7,6 +7,7 @@ import { PetUpload } from './PetUpload';
 import { BackgroundChoice } from './BackgroundChoice';
 import { Compose } from './Compose';
 import { FrameDownload } from './FrameDownload';
+import { Footer } from '@/shared/components/layout/Footer';
 import { cn } from '@/shared/lib/utils';
 
 const STEP_LABELS = [
@@ -85,6 +86,7 @@ export default function EditorContainer() {
         {currentStep === 3 && <Compose />}
         {currentStep === 4 && <FrameDownload />}
       </main>
+      <Footer />
     </div>
   );
 }
