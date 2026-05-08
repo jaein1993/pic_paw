@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none">
+  <rect width="600" height="600" fill="none"/>
+  <!-- border -->
+  <rect x="4" y="4" width="592" height="592" rx="16" stroke="#FF7B7B" stroke-width="8" fill="none"/>
+  <!-- paw prints corners -->
+  <text x="20" y="55" font-size="40">🐾</text>
+  <text x="520" y="55" font-size="40">🐾</text>
+  <text x="20" y="590" font-size="40">🐾</text>
+  <text x="520" y="590" font-size="40">🐾</text>
+</svg>
