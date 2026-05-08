@@ -438,6 +438,10 @@ export function Compose() {
 
     try {
       for (let i = 0; i < SHOTS_TARGET; i++) {
+        // Show "1/4" at the start of cut 1, "2/4" at cut 2, etc. — counting
+        // the cut currently in progress, not completed cuts.
+        setShotsTakenLocal(i + 1);
+
         // Auto-unlock at the start of each cut so the user can re-position
         // for the next take without manually pressing "다시 조정".
         setPetPlacementLocked(false);
@@ -679,11 +683,13 @@ export function Compose() {
           variant={rotationEnabled ? 'secondary' : 'ghost'}
           onClick={() => {
             if (rotationEnabled) {
-              // Turning rotation OFF also resets position + scale + rotation
-              // back to defaults (acts like 위치 초기화 + rotation off).
+              // Turning rotation OFF: stop spin + un-tilt the pet, but
+              // keep position and scale exactly where they are.
               setRotationEnabled(false);
-              setPetPosition({ x: 0.72, y: 0.6 });
-              resetSpin();
+              rotationRef.current = 0;
+              spinVelocityRef.current = 0;
+              handHistoryRef.current = [];
+              setPetRotation(0);
             } else {
               setRotationEnabled(true);
             }
