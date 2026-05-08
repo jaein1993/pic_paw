@@ -13,6 +13,11 @@ export function Footer() {
           <Link href="/terms" className="hover:text-accent transition-colors">이용약관</Link>
         </nav>
       </div>
+      <div className="border-t border-ink/10">
+        <p className="max-w-6xl mx-auto px-6 sm:px-10 py-3 text-center font-mono text-[10px] tracking-[1px] text-ink/50">
+          team pic-paw — 김수빈 · 임재인 만듦
+        </p>
+      </div>
     </footer>
   );
 }
