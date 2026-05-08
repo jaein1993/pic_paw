@@ -538,29 +538,6 @@ export function Compose() {
         </p>
       </div>
 
-      <div className="w-full max-w-md bg-chip-bg/40 border border-ink/15 px-4 py-3 text-sm text-ink space-y-1.5">
-        <p className="font-bold text-ink/80 mb-1">🖐️ 손짓 사용법</p>
-        <p>
-          <span className="font-mono text-xs bg-surface px-1.5 py-0.5 border border-ink/20 mr-2">이동</span>
-          손바닥을 화면에서 움직이면 강아지가 따라와요
-        </p>
-        <p>
-          <span className="font-mono text-xs bg-surface px-1.5 py-0.5 border border-ink/20 mr-2">크기</span>
-          엄지·검지를 모았다가 벌리면 커지고, 좁히면 작아져요
-        </p>
-        {rotationEnabled && (
-          <>
-            <p>
-              <span className="font-mono text-xs bg-surface px-1.5 py-0.5 border border-ink/20 mr-2">회전</span>
-              손바닥으로 작은 원을 그리면 빙글빙글 돌아요
-            </p>
-            <p>
-              <span className="font-mono text-xs bg-surface px-1.5 py-0.5 border border-ink/20 mr-2">정지</span>
-              손바닥을 활짝 펴면 회전이 멈춰요
-            </p>
-          </>
-        )}
-      </div>
 
       <div
         ref={containerRef}
