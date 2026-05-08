@@ -57,17 +57,27 @@ export function PetUpload() {
       <div className="text-center">
         <h2 className="text-2xl font-bold text-text-primary">반려동물 사진 업로드</h2>
         <p className="text-text-secondary mt-1">
-          AI가 자동으로 배경을 제거해드려요. (첫 사용 시 약 25MB 모델 다운로드)
+          AI가 자동으로 배경을 제거해드려요. (첫 사용 시 약 50MB 모델 다운로드)
         </p>
       </div>
 
       {!petImageUrl && !isProcessing && (
-        <FileDropzone
-          onUpload={handleUpload}
-          maxSize={10 * 1024 * 1024}
-        >
-          반려동물 사진을 끌어다 놓거나 클릭해서 선택
-        </FileDropzone>
+        <>
+          <FileDropzone
+            onUpload={handleUpload}
+            maxSize={10 * 1024 * 1024}
+          >
+            반려동물 사진을 끌어다 놓거나 클릭해서 선택
+          </FileDropzone>
+
+          <div className="w-full max-w-sm bg-chip-bg/50 border border-ink/10 rounded-2xl p-4 text-sm text-text-secondary space-y-1.5">
+            <p className="font-bold text-text-primary mb-1">📷 깔끔한 누끼를 위한 팁</p>
+            <p>· 단색 배경 (흰 벽, 카펫 위 등)</p>
+            <p>· 조명 충분, 그림자 적게</p>
+            <p>· 강아지가 화면 가운데에 크게</p>
+            <p>· 다른 동물·사람 없이 한 마리만</p>
+          </div>
+        </>
       )}
 
       {isProcessing && (
