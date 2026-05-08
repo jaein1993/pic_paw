@@ -111,6 +111,8 @@ export function Compose() {
   const [handTrackingEnabled, setHandTrackingEnabled] = useState(true);
   const [petPlacementLocked, setPetPlacementLocked] = useState(false);
   const [captureFrozen, setCaptureFrozen] = useState(false);
+  // Rotation is opt-in — too easy to accidentally spin the pet otherwise.
+  const [rotationEnabled, setRotationEnabled] = useState(false);
 
   const {
     status: handStatus,
@@ -283,9 +285,12 @@ export function Compose() {
   // of recent palm positions, compute the angular velocity of the latest
   // sample around the window's centroid, and add that as an impulse to the
   // spin velocity. Tiny wrist circles pile up impulses fast → tornado.
+  // Disabled by default — user must explicitly enable via the toggle button
+  // (rotation can be confusing/accidental during composition).
   useEffect(() => {
     if (
       !handTrackingEnabled ||
+      !rotationEnabled ||
       captureFrozen ||
       petPlacementLocked ||
       !handPoint
@@ -324,7 +329,7 @@ export function Compose() {
       -ROT_VELOCITY_MAX,
       Math.min(ROT_VELOCITY_MAX, next),
     );
-  }, [handPoint, handTrackingEnabled, captureFrozen, petPlacementLocked]);
+  }, [handPoint, handTrackingEnabled, captureFrozen, petPlacementLocked, rotationEnabled]);
 
   const resetSpin = useCallback(() => {
     rotationRef.current = 0;
@@ -551,7 +556,7 @@ export function Compose() {
       <div className="text-center">
         <h2 className="text-2xl font-head font-extrabold text-ink">Pic-paw 부스</h2>
         <p className="text-ink/70 mt-1 text-sm">
-          입장하면 10초 카운트다운 4번 자동 촬영됩니다. 두 손으로 회전, 핀치로 크기, 손바닥 펴면 정지.
+          입장하면 10초 카운트다운 4번 자동 촬영됩니다. 손으로 위치 이동, 핀치로 크기 조정.
         </p>
       </div>
 
@@ -620,7 +625,7 @@ export function Compose() {
           </div>
         )}
 
-        {palmOpen && (
+        {palmOpen && rotationEnabled && (
           <div className="absolute top-3 left-3 px-3 py-1 bg-accent-2 text-ink text-xs font-mono font-bold border-2 border-ink">
             ✋ 정지
           </div>
@@ -665,6 +670,29 @@ export function Compose() {
           className="w-full"
         >
           위치 초기화
+        </Button>
+      </div>
+
+      <div className="w-full max-w-md">
+        <Button
+          type="button"
+          variant={rotationEnabled ? 'secondary' : 'ghost'}
+          onClick={() => {
+            if (rotationEnabled) {
+              // Turning rotation OFF also resets position + scale + rotation
+              // back to defaults (acts like 위치 초기화 + rotation off).
+              setRotationEnabled(false);
+              setPetPosition({ x: 0.72, y: 0.6 });
+              resetSpin();
+            } else {
+              setRotationEnabled(true);
+            }
+          }}
+          disabled={petPlacementLocked}
+          className="w-full"
+          aria-pressed={rotationEnabled}
+        >
+          {rotationEnabled ? '🌀 회전기능 제거' : '🌀 회전기능 추가'}
         </Button>
       </div>
 
