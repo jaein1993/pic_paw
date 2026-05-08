@@ -29,11 +29,12 @@ export function ThemeToggle() {
             title={opt.value === 'A' ? '차분한 사진관' : '키치 부스'}
             className={
               active
-                ? 'px-2.5 py-1 bg-ink text-surface'
-                : 'px-2.5 py-1 text-ink hover:bg-ink/5'
+                ? 'px-2 sm:px-2.5 py-1 bg-ink text-surface whitespace-nowrap'
+                : 'px-2 sm:px-2.5 py-1 text-ink hover:bg-ink/5 whitespace-nowrap'
             }
           >
-            {opt.label} · {opt.sub}
+            {opt.label}
+            <span className="hidden sm:inline"> · {opt.sub}</span>
           </button>
         );
       })}
