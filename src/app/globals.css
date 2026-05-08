@@ -84,3 +84,12 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* On wide PC screens the layout reads tall — the editor's camera + buttons
+ * push past the fold at 100% browser zoom. Shrink to 80% by default so
+ * everything fits in one viewport. Mobile keeps its native scale. */
+@media (min-width: 1024px) {
+  html {
+    zoom: 0.8;
+  }
+}
