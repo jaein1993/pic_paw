@@ -533,6 +533,38 @@ export function Compose() {
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('debug') === '1';
   const v = videoRef.current;
+
+  // Sample the center pixel of the live video — proves whether MediaPipe is
+  // receiving actual frames (non-zero RGB) or black/blank frames.
+  const [pixelSample, setPixelSample] = useState<string>('?');
+  const [videoPlayState, setVideoPlayState] = useState<string>('?');
+  useEffect(() => {
+    if (!debugMode) return;
+    const id = window.setInterval(() => {
+      const vid = videoRef.current;
+      if (!vid || vid.videoWidth === 0) {
+        setPixelSample('no-video');
+        setVideoPlayState('no-video');
+        return;
+      }
+      try {
+        const cv = document.createElement('canvas');
+        cv.width = 8;
+        cv.height = 8;
+        const ctx = cv.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(vid, 0, 0, 8, 8);
+        const px = ctx.getImageData(4, 4, 1, 1).data;
+        setPixelSample(`rgb(${px[0]},${px[1]},${px[2]})`);
+        setVideoPlayState(
+          `paused=${vid.paused} t=${vid.currentTime.toFixed(2)}`,
+        );
+      } catch (e) {
+        setPixelSample(`err:${e instanceof Error ? e.message.slice(0, 30) : 'x'}`);
+      }
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [debugMode]);
   const debugInfo = debugMode
     ? {
         ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
@@ -646,6 +678,8 @@ detect:    calls=${debugInfo.detectCalls} errors=${debugInfo.detectErrors} lastH
 pinch:     ${debugInfo.pinch}
 palmExt:   ${debugInfo.palmExt}
 video:     readyState=${debugInfo.videoReadyState} size=${debugInfo.videoSize}
+videoState:${videoPlayState}
+pixel(4,4):${pixelSample}
 ua:        ${debugInfo.ua}`}
         </pre>
       )}
