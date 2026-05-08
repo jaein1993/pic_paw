@@ -114,6 +114,7 @@ export function Compose() {
     pinchDistance,
     palmExtension,
     errorMessage: handError,
+    stats: handStats,
   } = useHandTracking({
     enabled: handTrackingEnabled,
     videoRef,
@@ -542,6 +543,10 @@ export function Compose() {
         videoSize: v ? `${v.videoWidth}x${v.videoHeight}` : 'no-ref',
         pinch: pinchDistance?.toFixed(3) ?? '(none)',
         palmExt: palmExtension?.toFixed(3) ?? '(none)',
+        detectCalls: handStats.detectCalls,
+        detectErrors: handStats.detectErrors,
+        lastHands: handStats.lastHandsCount,
+        lastDetectAgo: handStats.lastDetectAgo,
       }
     : null;
 
@@ -637,6 +642,7 @@ export function Compose() {
 {`status:    ${debugInfo.handStatus}
 error:     ${debugInfo.handError}
 point:     ${debugInfo.handPoint}
+detect:    calls=${debugInfo.detectCalls} errors=${debugInfo.detectErrors} lastHands=${debugInfo.lastHands} lastAgo=${debugInfo.lastDetectAgo}ms
 pinch:     ${debugInfo.pinch}
 palmExt:   ${debugInfo.palmExt}
 video:     readyState=${debugInfo.videoReadyState} size=${debugInfo.videoSize}

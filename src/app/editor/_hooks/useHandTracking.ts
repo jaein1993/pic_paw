@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Track the user's palm via MediaPipe Tasks Vision (loaded lazily from a CDN
 // so the home page isn't paying the cost). The hook returns the current palm
@@ -47,6 +47,13 @@ export interface HandTrackingOptions {
   smoothing?: number;
 }
 
+export interface HandTrackingStats {
+  detectCalls: number;
+  detectErrors: number;
+  lastHandsCount: number;
+  lastDetectAgo: number; // ms since last detect call
+}
+
 export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTrackingOptions): {
   status: Status;
   point: HandPoint | null;
@@ -54,6 +61,7 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
   pinchDistance: number | null;
   palmExtension: number | null;
   errorMessage: string | null;
+  stats: HandTrackingStats;
 } {
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -61,6 +69,16 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
   const [secondPoint, setSecondPoint] = useState<HandPoint | null>(null);
   const [pinchDistance, setPinchDistance] = useState<number | null>(null);
   const [palmExtension, setPalmExtension] = useState<number | null>(null);
+  const [stats, setStats] = useState<HandTrackingStats>({
+    detectCalls: 0,
+    detectErrors: 0,
+    lastHandsCount: 0,
+    lastDetectAgo: -1,
+  });
+  const detectCallsRef = useRef(0);
+  const detectErrorsRef = useRef(0);
+  const lastHandsCountRef = useRef(0);
+  const lastDetectAtRef = useRef(0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -146,8 +164,11 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
       const video = videoRef.current;
       if (video && video.readyState >= 2 && landmarker) {
         try {
+          detectCallsRef.current += 1;
+          lastDetectAtRef.current = performance.now();
           const result = landmarker.detectForVideo(video, performance.now());
           const hands = result.landmarks ?? [];
+          lastHandsCountRef.current = hands.length;
 
           if (hands.length > 0 && hands[0].length > 0) {
             const primary = palmCentroid(hands[0]);
@@ -202,6 +223,9 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
         } catch (err) {
           // Frame failed — skip and try again next tick. Log so mobile
           // failures don't disappear silently.
+          detectErrorsRef.current += 1;
+          const msg = err instanceof Error ? err.message : String(err);
+          setErrorMessage(`detect: ${msg.slice(0, 100)}`);
           console.warn('[handTracking] detect frame failed', err);
         }
       }
@@ -225,7 +249,24 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
     };
   }, [enabled, videoRef, smoothing]);
 
-  return { status, point, secondPoint, pinchDistance, palmExtension, errorMessage };
+  // Publish diagnostic counters to state every ~500ms — diagnostic only,
+  // throttled to avoid 60fps re-renders that would tank perf.
+  useEffect(() => {
+    if (!enabled) return;
+    const id = window.setInterval(() => {
+      setStats({
+        detectCalls: detectCallsRef.current,
+        detectErrors: detectErrorsRef.current,
+        lastHandsCount: lastHandsCountRef.current,
+        lastDetectAgo: lastDetectAtRef.current
+          ? Math.round(performance.now() - lastDetectAtRef.current)
+          : -1,
+      });
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [enabled]);
+
+  return { status, point, secondPoint, pinchDistance, palmExtension, errorMessage, stats };
 }
 
 function clamp01(n: number): number {
