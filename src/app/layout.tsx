@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ThemeSync } from "@/shared/hooks/useTheme";
+import { InAppBrowserBanner } from "@/shared/components/layout/InAppBrowserBanner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default function RootLayout({
     <html lang="ko" data-theme="A" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <ThemeSync />
+        <InAppBrowserBanner />
         {children}
       </body>
     </html>
