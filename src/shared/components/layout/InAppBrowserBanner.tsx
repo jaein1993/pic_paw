@@ -24,8 +24,6 @@ const LABELS: Record<InAppKind, string> = {
   other: '인앱',
 };
 
-const REDIRECT_FLAG = 'pic-paw:inapp-redirected';
-
 export function InAppBrowserBanner() {
   const [kind, setKind] = useState<InAppKind | null>(null);
   const [isAndroid, setIsAndroid] = useState(false);
@@ -35,34 +33,35 @@ export function InAppBrowserBanner() {
 
   useEffect(() => {
     const ua = navigator.userAgent;
-    const detected = detectInApp(ua);
-    setKind(detected);
-    const android = /Android/i.test(ua);
-    const ios = /iPhone|iPad|iPod/i.test(ua);
-    setIsAndroid(android);
-    setIsIOS(ios);
-
-    // Android KakaoTalk exposes a force-external-browser URL scheme. Fire it
-    // automatically once per session so the user is sent to Chrome / Samsung
-    // Internet directly, no taps required.
-    if (detected === 'kakao' && android) {
-      const already = sessionStorage.getItem(REDIRECT_FLAG);
-      if (!already) {
-        sessionStorage.setItem(REDIRECT_FLAG, '1');
-        const timer = setTimeout(() => {
-          window.location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(window.location.href)}`;
-        }, 250);
-        return () => clearTimeout(timer);
-      }
-    }
+    setKind(detectInApp(ua));
+    setIsAndroid(/Android/i.test(ua));
+    setIsIOS(/iPhone|iPad|iPod/i.test(ua));
   }, []);
 
   if (!kind || dismissed) return null;
 
+  // Try multiple "force external browser" schemes on Android. Each scheme
+  // works on different KakaoTalk / WebView versions; if one fails the
+  // browser stays on the page so we fall through to the next.
+  const tryAndroidExternal = (url: string) => {
+    // KakaoTalk's documented scheme — most reliable on KKT.
+    window.location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(url)}`;
+    // Fallback to Android intent:// after a beat, in case the scheme above
+    // was a no-op. browser_fallback_url makes the OS open the default
+    // browser when no Chrome is installed.
+    setTimeout(() => {
+      const intent =
+        `intent://${url.replace(/^https?:\/\//, '')}` +
+        `#Intent;scheme=https;package=com.android.chrome;` +
+        `S.browser_fallback_url=${encodeURIComponent(url)};end`;
+      window.location.href = intent;
+    }, 600);
+  };
+
   const handlePrimaryAction = async () => {
     const url = window.location.href;
-    if (kind === 'kakao' && isAndroid) {
-      window.location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(url)}`;
+    if (isAndroid) {
+      tryAndroidExternal(url);
       return;
     }
     try {
@@ -76,7 +75,7 @@ export function InAppBrowserBanner() {
 
   const primaryLabel = copied
     ? '✓ URL 복사 완료!'
-    : kind === 'kakao' && isAndroid
+    : isAndroid
       ? '외부 브라우저로 이동'
       : 'URL 복사';
 
