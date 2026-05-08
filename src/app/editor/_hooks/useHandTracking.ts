@@ -1,12 +1,26 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { Hands as HandsClass, Results } from '@mediapipe/hands';
 
-// Track the user's palm via MediaPipe Tasks Vision (loaded lazily from a CDN
-// so the home page isn't paying the cost). The hook returns the current palm
-// position normalized to [0..1] in MIRRORED space — i.e. matches the flipped
-// selfie video the user sees on screen — so it can be assigned directly to
-// `petPosition`.
+// @mediapipe/hands ships as a UMD bundle that pollutes window.Hands when
+// loaded via a script tag. We can't `import { Hands }` directly — that
+// fails at bundle time because the package has no ES module exports. So
+// we inject the script at runtime and read the constructor off window.
+type HandsCtor = new (cfg: { locateFile: (file: string) => string }) => HandsClass;
+declare global {
+  interface Window {
+    Hands?: HandsCtor;
+  }
+}
+
+// Legacy MediaPipe Hands "Solution" API. We migrated off the newer
+// @mediapipe/tasks-vision HandLandmarker after the user's Galaxy phone hit
+// a CalculatorGraph runtime crash that ALSO reproduced on the official
+// MediaPipe Studio demo — i.e. the new graph composition is incompatible
+// with that device's WebGL/WASM combo. The legacy Hands solution has been
+// the production-grade hand-tracking library for mobile web since 2020 and
+// works on a wider range of devices.
 
 type Status = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -15,38 +29,20 @@ interface HandPoint {
   y: number;
 }
 
-interface HandLandmarkerInstance {
-  detectForVideo: (
-    v: HTMLVideoElement,
-    ts: number
-  ) => { landmarks: Array<Array<{ x: number; y: number }>> };
-  close?: () => void;
-}
+// Load WASM/binary assets from a CDN so they aren't bundled into our app
+// (saves ~5MB from the JS bundle).
+const HANDS_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240';
 
-const VISION_BUNDLE_URL =
-  'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs';
-const WASM_BASE_URL =
-  'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm';
-// Pin to version "1" (the only published numeric version of this model). The
-// `latest` alias historically silently redirected to newer / different model
-// builds and was suspected of regressing mobile detection.
-const HAND_MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
-
-// We average wrist (0) + middle finger MCP (9) for a stable palm centroid.
-const PALM_INDICES = [0, 9];
-// Thumb tip and index tip — distance between them = pinch openness.
+// Landmark indices (same as Tasks Vision and standard 21-point model).
+const PALM_INDICES = [0, 9]; // wrist + middle MCP → palm centroid
 const THUMB_TIP = 4;
 const INDEX_TIP = 8;
-// Wrist → middle fingertip distance acts as overall palm extension.
-// Values around 0.05–0.10 = curled fist, 0.20+ = fully spread open palm.
 const WRIST = 0;
 const MIDDLE_TIP = 12;
 
 export interface HandTrackingOptions {
   enabled: boolean;
   videoRef: React.RefObject<HTMLVideoElement | null>;
-  // Smoothing factor 0..1 — higher = more responsive, lower = smoother.
   smoothing?: number;
 }
 
@@ -54,7 +50,7 @@ export interface HandTrackingStats {
   detectCalls: number;
   detectErrors: number;
   lastHandsCount: number;
-  lastDetectAgo: number; // ms since last detect call
+  lastDetectAgo: number;
 }
 
 export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTrackingOptions): {
@@ -88,7 +84,8 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
 
     let cancelled = false;
     let rafId = 0;
-    let landmarker: HandLandmarkerInstance | null = null;
+    let hands: HandsClass | null = null;
+    let isSending = false;
     let smoothed: HandPoint | null = null;
     let smoothedSecond: HandPoint | null = null;
     let smoothedPinch: number | null = null;
@@ -97,65 +94,6 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
     setStatus('loading');
     setErrorMessage(null);
 
-    (async () => {
-      try {
-        // Build the dynamic import via Function() so neither webpack nor
-        // turbopack tries to resolve the remote URL at bundle time.
-        const runtimeImport = new Function('u', 'return import(u)') as (
-          u: string
-        ) => Promise<unknown>;
-        const vision = (await runtimeImport(VISION_BUNDLE_URL)) as {
-          FilesetResolver: { forVisionTasks: (wasmBase: string) => Promise<unknown> };
-          HandLandmarker: {
-            createFromOptions: (
-              resolver: unknown,
-              opts: Record<string, unknown>
-            ) => Promise<unknown>;
-          };
-        };
-        if (cancelled) return;
-        const filesetResolver = await vision.FilesetResolver.forVisionTasks(WASM_BASE_URL);
-        if (cancelled) return;
-        // GPU delegate fails on many mobile browsers (iOS Safari in particular —
-        // WebGL context creation for MediaPipe inference is flaky). Try GPU
-        // first for desktop perf, fall back to CPU so mobile users still get
-        // hand tracking instead of a silent failure.
-        const createWithDelegate = async (delegate: 'GPU' | 'CPU') =>
-          (await vision.HandLandmarker.createFromOptions(filesetResolver, {
-            baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate },
-            runningMode: 'VIDEO',
-            numHands: 2,
-            // Lower the confidence floors from the default 0.5 → 0.3. On
-            // mobile front cameras (lower contrast, harsher exposure, partly
-            // occluded palms) the default is too strict and the model
-            // silently rejects valid hands. 0.3 still filters obvious noise.
-            minHandDetectionConfidence: 0.3,
-            minHandPresenceConfidence: 0.3,
-            minTrackingConfidence: 0.3,
-          })) as HandLandmarkerInstance;
-        let lm: HandLandmarkerInstance;
-        try {
-          lm = await createWithDelegate('GPU');
-        } catch (gpuErr) {
-          if (cancelled) return;
-          console.warn('[handTracking] GPU delegate failed, falling back to CPU', gpuErr);
-          lm = await createWithDelegate('CPU');
-        }
-        if (cancelled) {
-          lm?.close?.();
-          return;
-        }
-        landmarker = lm;
-        setStatus('ready');
-        loop();
-      } catch (e) {
-        if (cancelled) return;
-        console.error('[handTracking] model load failed', e);
-        setStatus('error');
-        setErrorMessage(e instanceof Error ? e.message : '손 인식 모델을 불러오지 못했어요.');
-      }
-    })();
-
     function palmCentroid(hand: Array<{ x: number; y: number }>): HandPoint {
       let sx = 0;
       let sy = 0;
@@ -163,80 +101,146 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
         sx += hand[i].x;
         sy += hand[i].y;
       }
-      const rawX = sx / PALM_INDICES.length;
-      const rawY = sy / PALM_INDICES.length;
-      // Mirror x to match the CSS-flipped selfie video the user sees.
-      return { x: clamp01(1 - rawX), y: clamp01(rawY) };
+      // selfieMode:true on the Hands solution already returns coords in the
+      // user's mirrored selfie space (left hand → left side of frame), so
+      // we use rawX directly without the 1-x flip.
+      return { x: clamp01(sx / PALM_INDICES.length), y: clamp01(sy / PALM_INDICES.length) };
     }
 
-    function loop() {
+    function onResults(results: Results) {
+      const handsArr = results.multiHandLandmarks ?? [];
+      lastHandsCountRef.current = handsArr.length;
+
+      if (handsArr.length > 0 && handsArr[0].length > 0) {
+        const primary = palmCentroid(handsArr[0]);
+        smoothed = smoothed
+          ? {
+              x: smoothed.x + (primary.x - smoothed.x) * smoothing,
+              y: smoothed.y + (primary.y - smoothed.y) * smoothing,
+            }
+          : primary;
+        setPoint(smoothed);
+
+        const t = handsArr[0][THUMB_TIP];
+        const i = handsArr[0][INDEX_TIP];
+        const dx = t.x - i.x;
+        const dy = t.y - i.y;
+        const rawPinch = Math.sqrt(dx * dx + dy * dy);
+        smoothedPinch =
+          smoothedPinch === null
+            ? rawPinch
+            : smoothedPinch + (rawPinch - smoothedPinch) * smoothing;
+        setPinchDistance(smoothedPinch);
+
+        const w = handsArr[0][WRIST];
+        const m = handsArr[0][MIDDLE_TIP];
+        const ex = m.x - w.x;
+        const ey = m.y - w.y;
+        const rawExt = Math.sqrt(ex * ex + ey * ey);
+        smoothedExtension =
+          smoothedExtension === null
+            ? rawExt
+            : smoothedExtension + (rawExt - smoothedExtension) * smoothing;
+        setPalmExtension(smoothedExtension);
+      }
+
+      if (handsArr.length > 1 && handsArr[1].length > 0) {
+        const second = palmCentroid(handsArr[1]);
+        smoothedSecond = smoothedSecond
+          ? {
+              x: smoothedSecond.x + (second.x - smoothedSecond.x) * smoothing,
+              y: smoothedSecond.y + (second.y - smoothedSecond.y) * smoothing,
+            }
+          : second;
+        setSecondPoint(smoothedSecond);
+      } else if (smoothedSecond !== null) {
+        smoothedSecond = null;
+        setSecondPoint(null);
+      }
+    }
+
+    (async () => {
+      try {
+        // Inject the UMD script that defines window.Hands. We dedupe on the
+        // src so HMR / repeated mounts don't pile up duplicate <script> tags.
+        const scriptSrc = `${HANDS_CDN}/hands.js`;
+        if (!window.Hands) {
+          await new Promise<void>((resolve, reject) => {
+            const existing = document.querySelector(
+              `script[src="${scriptSrc}"]`,
+            ) as HTMLScriptElement | null;
+            if (existing) {
+              if (window.Hands) {
+                resolve();
+                return;
+              }
+              existing.addEventListener('load', () => resolve());
+              existing.addEventListener('error', () =>
+                reject(new Error('Hands script failed to load')),
+              );
+              return;
+            }
+            const s = document.createElement('script');
+            s.src = scriptSrc;
+            s.crossOrigin = 'anonymous';
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('Hands script failed to load'));
+            document.head.appendChild(s);
+          });
+        }
+        if (cancelled) return;
+        const HandsCtor = window.Hands;
+        if (!HandsCtor) {
+          throw new Error('window.Hands not defined after script load');
+        }
+        const lm = new HandsCtor({
+          locateFile: (file: string) => `${HANDS_CDN}/${file}`,
+        });
+        lm.setOptions({
+          // selfieMode so MediaPipe mirrors input internally — coords come
+          // back already aligned with the user's flipped selfie display.
+          selfieMode: true,
+          maxNumHands: 2,
+          // 0 = lite (smaller, faster), 1 = full (more accurate). Lite is
+          // a better fit for mobile CPUs that only have a few hundred MB
+          // of headroom for the WASM heap.
+          modelComplexity: 0,
+          minDetectionConfidence: 0.3,
+          minTrackingConfidence: 0.3,
+        });
+        lm.onResults(onResults);
+        await lm.initialize();
+        if (cancelled) {
+          await lm.close();
+          return;
+        }
+        hands = lm;
+        setStatus('ready');
+        loop();
+      } catch (e) {
+        if (cancelled) return;
+        console.error('[handTracking] hands init failed', e);
+        setStatus('error');
+        setErrorMessage(e instanceof Error ? e.message : '손 인식 모델을 불러오지 못했어요.');
+      }
+    })();
+
+    async function loop() {
       if (cancelled) return;
       const video = videoRef.current;
-      if (video && video.readyState >= 2 && landmarker) {
+      if (video && video.readyState >= 2 && hands && !isSending) {
+        isSending = true;
         try {
           detectCallsRef.current += 1;
           lastDetectAtRef.current = performance.now();
-          const result = landmarker.detectForVideo(video, performance.now());
-          const hands = result.landmarks ?? [];
-          lastHandsCountRef.current = hands.length;
-
-          if (hands.length > 0 && hands[0].length > 0) {
-            const primary = palmCentroid(hands[0]);
-            smoothed = smoothed
-              ? {
-                  x: smoothed.x + (primary.x - smoothed.x) * smoothing,
-                  y: smoothed.y + (primary.y - smoothed.y) * smoothing,
-                }
-              : primary;
-            setPoint(smoothed);
-
-            // Pinch distance — raw landmark space (not mirrored; only used as
-            // a magnitude). Thumb tip ↔ index tip.
-            const t = hands[0][THUMB_TIP];
-            const i = hands[0][INDEX_TIP];
-            const dx = t.x - i.x;
-            const dy = t.y - i.y;
-            const rawPinch = Math.sqrt(dx * dx + dy * dy);
-            smoothedPinch =
-              smoothedPinch === null
-                ? rawPinch
-                : smoothedPinch + (rawPinch - smoothedPinch) * smoothing;
-            setPinchDistance(smoothedPinch);
-
-            // Palm extension — wrist to middle fingertip. Used to detect
-            // open-palm "stop" gesture.
-            const w = hands[0][WRIST];
-            const m = hands[0][MIDDLE_TIP];
-            const ex = m.x - w.x;
-            const ey = m.y - w.y;
-            const rawExt = Math.sqrt(ex * ex + ey * ey);
-            smoothedExtension =
-              smoothedExtension === null
-                ? rawExt
-                : smoothedExtension + (rawExt - smoothedExtension) * smoothing;
-            setPalmExtension(smoothedExtension);
-          }
-
-          if (hands.length > 1 && hands[1].length > 0) {
-            const second = palmCentroid(hands[1]);
-            smoothedSecond = smoothedSecond
-              ? {
-                  x: smoothedSecond.x + (second.x - smoothedSecond.x) * smoothing,
-                  y: smoothedSecond.y + (second.y - smoothedSecond.y) * smoothing,
-                }
-              : second;
-            setSecondPoint(smoothedSecond);
-          } else if (smoothedSecond !== null) {
-            smoothedSecond = null;
-            setSecondPoint(null);
-          }
+          await hands.send({ image: video });
         } catch (err) {
-          // Frame failed — skip and try again next tick. Log so mobile
-          // failures don't disappear silently.
           detectErrorsRef.current += 1;
           const msg = err instanceof Error ? err.message : String(err);
           setErrorMessage(`detect: ${msg.slice(0, 100)}`);
-          console.warn('[handTracking] detect frame failed', err);
+          console.warn('[handTracking] send failed', err);
+        } finally {
+          isSending = false;
         }
       }
       rafId = requestAnimationFrame(loop);
@@ -245,8 +249,8 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
     return () => {
       cancelled = true;
       cancelAnimationFrame(rafId);
-      landmarker?.close?.();
-      landmarker = null;
+      hands?.close().catch(() => {});
+      hands = null;
       smoothed = null;
       smoothedSecond = null;
       smoothedPinch = null;
@@ -259,8 +263,7 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
     };
   }, [enabled, videoRef, smoothing]);
 
-  // Publish diagnostic counters to state every ~500ms — diagnostic only,
-  // throttled to avoid 60fps re-renders that would tank perf.
+  // Publish diagnostic counters to state every ~500ms — diagnostic only.
   useEffect(() => {
     if (!enabled) return;
     const id = window.setInterval(() => {

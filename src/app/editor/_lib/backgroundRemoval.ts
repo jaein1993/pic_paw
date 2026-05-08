@@ -9,9 +9,11 @@ export async function removeImageBackground(
   opts: RemoveBackgroundOptions = {}
 ): Promise<Blob> {
   const config: Config = {
-    // FP16 model — better edge accuracy (fur/ears/collars) than the quantized
-    // default while keeping load time and CPU cost reasonable.
-    model: 'isnet_fp16',
+    // Quantized int8 model — ~10MB instead of ~30MB. First-load data cost
+    // and mobile RAM pressure both drop ~3x. Edge detail (fine fur) is
+    // marginally less crisp, which is acceptable for the booth use case
+    // and is the right trade-off for users on cellular.
+    model: 'isnet_quint8',
     output: {
       format: 'image/png',
       quality: 1.0,
