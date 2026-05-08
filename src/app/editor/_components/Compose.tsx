@@ -526,6 +526,25 @@ export function Compose() {
     error: handError ?? '손 인식 실패 — 마우스로 끌어 이동해주세요',
   };
 
+  // ?debug=1 → on-screen diagnostic overlay so we can see what MediaPipe is
+  // doing on a phone without USB devtools.
+  const debugMode =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('debug') === '1';
+  const v = videoRef.current;
+  const debugInfo = debugMode
+    ? {
+        ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+        handStatus,
+        handError: handError ?? '(none)',
+        handPoint: handPoint ? `${handPoint.x.toFixed(2)},${handPoint.y.toFixed(2)}` : '(none)',
+        videoReadyState: v?.readyState ?? 'no-ref',
+        videoSize: v ? `${v.videoWidth}x${v.videoHeight}` : 'no-ref',
+        pinch: pinchDistance?.toFixed(3) ?? '(none)',
+        palmExt: palmExtension?.toFixed(3) ?? '(none)',
+      }
+    : null;
+
   const canDragPet =
     !busy && !petPlacementLocked && !(handTrackingEnabled && handStatus === 'ready' && !!handPoint);
 
@@ -612,6 +631,18 @@ export function Compose() {
       </div>
 
       {cameraError && <p className="text-sm text-red-500">{cameraError}</p>}
+
+      {debugInfo && (
+        <pre className="w-full max-w-md text-[10px] leading-tight font-mono bg-ink text-surface p-2 border-2 border-ink whitespace-pre-wrap break-all">
+{`status:    ${debugInfo.handStatus}
+error:     ${debugInfo.handError}
+point:     ${debugInfo.handPoint}
+pinch:     ${debugInfo.pinch}
+palmExt:   ${debugInfo.palmExt}
+video:     readyState=${debugInfo.videoReadyState} size=${debugInfo.videoSize}
+ua:        ${debugInfo.ua}`}
+        </pre>
+      )}
 
       <div className="w-full max-w-md flex items-center justify-between gap-2 text-xs text-ink/70">
         <span className="font-mono tracking-wider">{handStatusLabel[handStatus]}</span>
