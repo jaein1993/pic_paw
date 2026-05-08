@@ -441,6 +441,14 @@ export function Compose() {
         // Auto-unlock at the start of each cut so the user can re-position
         // for the next take without manually pressing "다시 조정".
         setPetPlacementLocked(false);
+        // Reset rotation toggle to its default OFF for each fresh cut —
+        // accidental tornado spin from a previous cut shouldn't leak into
+        // the next one. User must explicitly re-enable to spin again.
+        setRotationEnabled(false);
+        rotationRef.current = 0;
+        spinVelocityRef.current = 0;
+        handHistoryRef.current = [];
+        setPetRotation(0);
 
         // Begin recording frames for this cut at FRAME_FPS.
         const cutFrames: HTMLCanvasElement[] = [];
@@ -749,11 +757,6 @@ ua:        ${debugInfo.ua}`}
           onClick={() => {
             setPetPosition({ x: 0.72, y: 0.6 });
             resetSpin();
-            // Without locking, the next hand-tracking tick (~50 ms later)
-            // would snap the pet right back to the user's hand and the
-            // reset would be invisible. Lock so the default position
-            // sticks until the user taps "다시 조정" to resume tracking.
-            setPetPlacementLocked(true);
           }}
           className="w-full"
         >
