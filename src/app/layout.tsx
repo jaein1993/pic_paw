@@ -3,9 +3,8 @@ import { ThemeSync } from "@/shared/hooks/useTheme";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Pic-paw — 너랑 나랑, 어디서나 언제까지나",
-  description:
-    "반려동물 사진을 AI로 합성하는 반응형 웹 서비스 (Pic-paw 가칭, 시연용 MVP)",
+  title: "Pic-paw — 어디서나 언제까지나",
+  description: "반려동물 사진을 AI로 합성하는 반응형 웹 서비스",
 };
 
 export const viewport: Viewport = {

@@ -23,7 +23,7 @@ export function HeroSection() {
           </span>
 
           <h1 className="font-head font-extrabold text-ink leading-[0.95] tracking-[-0.04em] mb-6 text-[56px] sm:text-[72px] lg:text-[88px]">
-            너랑 나랑,<br />
+            pic-paw,<br />
             오늘의<br />
             <span className="relative inline-block">
               네 컷

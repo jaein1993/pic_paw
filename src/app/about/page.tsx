@@ -12,7 +12,7 @@ export default function AboutPage() {
           <section>
             <h2 className="text-xl font-bold text-text-primary mb-3">한 줄 소개</h2>
             <p>
-              강아지와 함께 즐기는 인생네컷 부스. 카메라로 4컷 인생네컷 부스 자동 촬영을 통해,
+              강아지와 함께 즐기는 pic-paw 부스. 카메라로 4컷 자동 촬영을 통해,
               회원가입 없이 PC와 모바일 어디서나 우리 둘만의 스트립을 만들 수 있어요.
             </p>
           </section>
@@ -24,8 +24,8 @@ export default function AboutPage() {
               <li>카메라 라이브 부스 — 강아지 위치 손가락/마우스로 조정</li>
               <li>5초 자동 카운트다운 × 4번 연속 촬영</li>
               <li>셀별 자동 데코(썬글라스/말풍선/하트핀)</li>
-              <li>인생네컷 스타일 테두리 3종 (블랙/파스텔핑크/크림)</li>
-              <li>인생네컷 스타일 스트립 PNG 다운로드</li>
+              <li>pic-paw 부스 스타일 테두리 3종 (블랙/파스텔핑크/크림)</li>
+              <li>pic-paw 부스 스타일 스트립 PNG 다운로드</li>
             </ul>
           </section>
 
@@ -37,12 +37,6 @@ export default function AboutPage() {
             </p>
           </section>
 
-          <section className="bg-brand-primary/5 rounded-2xl p-6">
-            <p className="text-sm text-text-secondary">
-              본 서비스는 안산 청년창업 경진대회 시연용 MVP입니다. 현재 서비스명 "Pic-paw"은
-              가칭이며, 정식 출시 시 변경될 수 있습니다.
-            </p>
-          </section>
         </div>
       </main>
       <Footer />

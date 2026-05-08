@@ -27,7 +27,7 @@ export function Step2_BackgroundChoice() {
       <header>
         <h2 className="text-xl font-bold text-text-primary">카메라 준비</h2>
         <p className="text-text-secondary text-sm mt-1">
-          인생네컷 부스에 입장합니다. 카메라 권한이 필요해요.
+          pic-paw 부스에 입장합니다. 카메라 권한이 필요해요.
         </p>
       </header>
 
