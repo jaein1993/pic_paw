@@ -1,26 +1,3 @@
-function isMobileUA(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-}
-
-// On mobile (especially iOS Safari) the `<a download>` attribute is ignored
-// and the file is opened in-place rather than saved. Use the Web Share API
-// instead so the user gets a native share sheet and can pick "Save to
-// Photos" / "Save to Files". Desktop falls through to the classic anchor
-// click which is what users expect there.
-async function tryShareFile(blob: Blob, filename: string, mimeType: string): Promise<boolean> {
-  if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return false;
-  try {
-    const file = new File([blob], filename, { type: mimeType });
-    if (!navigator.canShare?.({ files: [file] })) return false;
-    await navigator.share({ files: [file] });
-    return true;
-  } catch {
-    // User canceled or share failed; let caller fall back.
-    return false;
-  }
-}
-
 function clickDownloadLink(href: string, filename: string): void {
   const link = document.createElement('a');
   link.download = filename;
@@ -35,21 +12,17 @@ export async function downloadDataURL(
   dataURL: string,
   filename = `photo_${Date.now()}.png`,
 ): Promise<void> {
-  if (isMobileUA()) {
-    const res = await fetch(dataURL);
-    const blob = await res.blob();
-    if (await tryShareFile(blob, filename, 'image/png')) return;
-  }
   clickDownloadLink(dataURL, filename);
 }
 
+// `mimeType` arg is kept for call-site compatibility; the browser infers
+// download type from the blob URL or filename extension.
 export async function downloadBlob(
   blob: Blob,
   filename: string,
-  mimeType?: string,
+  _mimeType?: string,
 ): Promise<void> {
-  const type = mimeType ?? blob.type ?? 'application/octet-stream';
-  if (isMobileUA() && (await tryShareFile(blob, filename, type))) return;
+  void _mimeType;
   const url = URL.createObjectURL(blob);
   clickDownloadLink(url, filename);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
