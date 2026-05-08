@@ -81,19 +81,27 @@ export function FrameDownload() {
   const stripContainerRef = useRef<HTMLDivElement>(null);
   const [displayWidth, setDisplayWidth] = useState(STRIP_W);
 
-  // Track the strip container's actual rendered width so we can downscale the
-  // Konva Stage on narrow screens. Without this the 360px-wide strip overflows
-  // mobile viewports and the bottom cells get clipped by overflow:hidden.
+  // Track BOTH the strip container width AND the viewport height so the
+  // strip fits without scrolling on portrait phones. We pick the smaller of:
+  //   • container width
+  //   • viewport-height-derived width (so strip never exceeds ~70vh tall)
+  //   • original STRIP_W (no upscaling)
   useEffect(() => {
     const el = stripContainerRef.current;
     if (!el) return;
     const update = () => {
-      setDisplayWidth(Math.min(STRIP_W, el.offsetWidth));
+      const widthCap = el.offsetWidth;
+      const viewportHeightCap = (window.innerHeight * 0.7) * (STRIP_W / STRIP_H);
+      setDisplayWidth(Math.min(STRIP_W, widthCap, viewportHeightCap));
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener('resize', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+    };
   }, []);
 
   const displayScale = displayWidth / STRIP_W;
@@ -255,7 +263,7 @@ export function FrameDownload() {
         ref={stripContainerRef}
         className={`overflow-hidden ${frame.containerClass}`}
         style={{
-          width: STRIP_W,
+          width: displayWidth,
           maxWidth: '100%',
           height: displayHeight,
           border: frame.outerBorder
