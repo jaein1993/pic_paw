@@ -25,6 +25,25 @@ const FRAME_SIZE = 200;
 const FRAME_FPS = 8;
 const FRAME_INTERVAL_MS = 1000 / FRAME_FPS;
 
+// Tornado-mode spin engine: hand swirling around its own moving centroid feeds
+// angular impulse into the pet image. OIIA-cat style — accumulates with
+// momentum, decays on its own.
+const SPIN_AMPLIFY = 12;
+const SPIN_DECAY = 0.93;
+const SPIN_VELOCITY_MAX = 35; // deg per rAF tick (~60fps cap)
+const SPIN_VELOCITY_FLOOR = 0.05;
+const HAND_HISTORY_LEN = 5;
+
+// Scale gestures — multiplies pet base size:
+//   • Two hands visible: distance between palms → scale
+//   • One hand: thumb-index pinch distance → scale
+const SCALE_MIN = 0.4;
+const SCALE_MAX = 2.0;
+const SCALE_DEFAULT = 1.0;
+const SCALE_SMOOTH = 0.18;
+const TWO_HAND_SCALE_MULT = 2.8;
+const PINCH_SCALE_MULT = 11;
+
 function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
   const [size, setSize] = useState(360);
   useEffect(() => {
@@ -80,7 +99,13 @@ export function Compose() {
   const [petPlacementLocked, setPetPlacementLocked] = useState(false);
   const [captureFrozen, setCaptureFrozen] = useState(false);
 
-  const { status: handStatus, point: handPoint, errorMessage: handError } = useHandTracking({
+  const {
+    status: handStatus,
+    point: handPoint,
+    secondPoint: handSecondPoint,
+    pinchDistance,
+    errorMessage: handError,
+  } = useHandTracking({
     enabled: handTrackingEnabled,
     videoRef,
   });
@@ -131,6 +156,110 @@ export function Compose() {
     if (!handTrackingEnabled || !handPoint || petPlacementLocked || captureFrozen) return;
     setPetPosition({ x: handPoint.x, y: handPoint.y });
   }, [handPoint, handTrackingEnabled, petPlacementLocked, captureFrozen, setPetPosition]);
+
+  // ─── Spin engine (OIIA tornado mode) ───────────────────────────────────────
+  const [petRotation, setPetRotation] = useState(0);
+  const [petScale, setPetScale] = useState(SCALE_DEFAULT);
+  const rotationRef = useRef(0);
+  const spinVelocityRef = useRef(0);
+  const handHistoryRef = useRef<Array<{ x: number; y: number }>>([]);
+  const scaleRef = useRef(SCALE_DEFAULT);
+  const targetScaleRef = useRef(SCALE_DEFAULT);
+
+  // rAF-driven decay loop: applies current spin velocity to rotation each
+  // frame, then bleeds velocity. Also lerps petScale toward its target.
+  useEffect(() => {
+    let rafId = 0;
+    const tick = () => {
+      const v = spinVelocityRef.current;
+      if (Math.abs(v) > SPIN_VELOCITY_FLOOR) {
+        rotationRef.current += v;
+        spinVelocityRef.current = v * SPIN_DECAY;
+        setPetRotation(rotationRef.current);
+      } else if (v !== 0) {
+        spinVelocityRef.current = 0;
+      }
+
+      const target = targetScaleRef.current;
+      const cur = scaleRef.current;
+      if (Math.abs(target - cur) > 0.001) {
+        const next = cur + (target - cur) * SCALE_SMOOTH;
+        scaleRef.current = next;
+        setPetScale(next);
+      }
+
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
+  // Map current hand gesture → target scale.
+  useEffect(() => {
+    if (!handTrackingEnabled || captureFrozen) return;
+    let target: number | null = null;
+    if (handPoint && handSecondPoint) {
+      const dx = handPoint.x - handSecondPoint.x;
+      const dy = handPoint.y - handSecondPoint.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      target = dist * TWO_HAND_SCALE_MULT;
+    } else if (pinchDistance !== null) {
+      target = pinchDistance * PINCH_SCALE_MULT;
+    }
+    if (target === null) return;
+    targetScaleRef.current = Math.max(SCALE_MIN, Math.min(SCALE_MAX, target));
+  }, [handPoint, handSecondPoint, pinchDistance, handTrackingEnabled, captureFrozen]);
+
+  // Each new hand sample → add angular-velocity impulse based on how the hand
+  // is rotating around its own short-window centroid.
+  useEffect(() => {
+    if (!handTrackingEnabled || !handPoint || captureFrozen) {
+      handHistoryRef.current = [];
+      return;
+    }
+    const hist = handHistoryRef.current;
+    hist.push({ x: handPoint.x, y: handPoint.y });
+    if (hist.length > HAND_HISTORY_LEN) hist.shift();
+    if (hist.length < 3) return;
+
+    let cx = 0;
+    let cy = 0;
+    for (const p of hist) {
+      cx += p.x;
+      cy += p.y;
+    }
+    cx /= hist.length;
+    cy /= hist.length;
+
+    const curr = hist[hist.length - 1];
+    const prev = hist[hist.length - 2];
+    const rx = curr.x - cx;
+    const ry = curr.y - cy;
+    const r2 = rx * rx + ry * ry;
+    if (r2 < 0.0005) return;
+
+    const vx = curr.x - prev.x;
+    const vy = curr.y - prev.y;
+    const omega = (rx * vy - ry * vx) / r2;
+    const impulseDeg = omega * (180 / Math.PI) * SPIN_AMPLIFY;
+
+    const next = spinVelocityRef.current + impulseDeg;
+    spinVelocityRef.current = Math.max(
+      -SPIN_VELOCITY_MAX,
+      Math.min(SPIN_VELOCITY_MAX, next),
+    );
+  }, [handPoint, handTrackingEnabled, captureFrozen]);
+
+  const resetSpin = useCallback(() => {
+    rotationRef.current = 0;
+    spinVelocityRef.current = 0;
+    handHistoryRef.current = [];
+    setPetRotation(0);
+    targetScaleRef.current = SCALE_DEFAULT;
+    scaleRef.current = SCALE_DEFAULT;
+    setPetScale(SCALE_DEFAULT);
+  }, []);
+  // ────────────────────────────────────────────────────────────────────────
 
   const petW = size * PET_REL;
   const petH = petImage ? petW * (petImage.height / petImage.width) : petW;
@@ -347,6 +476,9 @@ export function Compose() {
                   height={petH}
                   offsetX={petW / 2}
                   offsetY={petH / 2}
+                  rotation={petRotation}
+                  scaleX={petScale}
+                  scaleY={petScale}
                   draggable={canDragPet}
                   onDragEnd={handleDragEnd}
                   shadowColor="rgba(0,0,0,0.45)"
@@ -425,7 +557,10 @@ export function Compose() {
         <Button
           type="button"
           variant="secondary"
-          onClick={() => setPetPosition({ x: 0.72, y: 0.6 })}
+          onClick={() => {
+            setPetPosition({ x: 0.72, y: 0.6 });
+            resetSpin();
+          }}
           disabled={busy || petPlacementLocked}
           className="w-full"
         >

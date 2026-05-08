@@ -32,6 +32,9 @@ const HAND_MODEL_URL =
 
 // We average wrist (0) + middle finger MCP (9) for a stable palm centroid.
 const PALM_INDICES = [0, 9];
+// Thumb tip and index tip — distance between them = pinch openness.
+const THUMB_TIP = 4;
+const INDEX_TIP = 8;
 
 export interface HandTrackingOptions {
   enabled: boolean;
@@ -43,11 +46,15 @@ export interface HandTrackingOptions {
 export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTrackingOptions): {
   status: Status;
   point: HandPoint | null;
+  secondPoint: HandPoint | null;
+  pinchDistance: number | null;
   errorMessage: string | null;
 } {
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [point, setPoint] = useState<HandPoint | null>(null);
+  const [secondPoint, setSecondPoint] = useState<HandPoint | null>(null);
+  const [pinchDistance, setPinchDistance] = useState<number | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -56,6 +63,8 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
     let rafId = 0;
     let landmarker: HandLandmarkerInstance | null = null;
     let smoothed: HandPoint | null = null;
+    let smoothedSecond: HandPoint | null = null;
+    let smoothedPinch: number | null = null;
 
     setStatus('loading');
     setErrorMessage(null);
@@ -82,7 +91,7 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
         const lm = (await vision.HandLandmarker.createFromOptions(filesetResolver, {
           baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate: 'GPU' },
           runningMode: 'VIDEO',
-          numHands: 1,
+          numHands: 2,
         })) as HandLandmarkerInstance;
         if (cancelled) {
           lm?.close?.();
@@ -98,32 +107,63 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
       }
     })();
 
+    function palmCentroid(hand: Array<{ x: number; y: number }>): HandPoint {
+      let sx = 0;
+      let sy = 0;
+      for (const i of PALM_INDICES) {
+        sx += hand[i].x;
+        sy += hand[i].y;
+      }
+      const rawX = sx / PALM_INDICES.length;
+      const rawY = sy / PALM_INDICES.length;
+      // Mirror x to match the CSS-flipped selfie video the user sees.
+      return { x: clamp01(1 - rawX), y: clamp01(rawY) };
+    }
+
     function loop() {
       if (cancelled) return;
       const video = videoRef.current;
       if (video && video.readyState >= 2 && landmarker) {
         try {
           const result = landmarker.detectForVideo(video, performance.now());
-          const hand = result.landmarks?.[0];
-          if (hand && hand.length > 0) {
-            let sx = 0;
-            let sy = 0;
-            for (const i of PALM_INDICES) {
-              sx += hand[i].x;
-              sy += hand[i].y;
-            }
-            const rawX = sx / PALM_INDICES.length;
-            const rawY = sy / PALM_INDICES.length;
-            // Mirror x to match the CSS-flipped selfie video the user sees.
-            const mirroredX = 1 - rawX;
-            const next: HandPoint = { x: clamp01(mirroredX), y: clamp01(rawY) };
+          const hands = result.landmarks ?? [];
+
+          if (hands.length > 0 && hands[0].length > 0) {
+            const primary = palmCentroid(hands[0]);
             smoothed = smoothed
               ? {
-                  x: smoothed.x + (next.x - smoothed.x) * smoothing,
-                  y: smoothed.y + (next.y - smoothed.y) * smoothing,
+                  x: smoothed.x + (primary.x - smoothed.x) * smoothing,
+                  y: smoothed.y + (primary.y - smoothed.y) * smoothing,
                 }
-              : next;
+              : primary;
             setPoint(smoothed);
+
+            // Pinch distance — raw landmark space (not mirrored; only used as
+            // a magnitude). Thumb tip ↔ index tip.
+            const t = hands[0][THUMB_TIP];
+            const i = hands[0][INDEX_TIP];
+            const dx = t.x - i.x;
+            const dy = t.y - i.y;
+            const rawPinch = Math.sqrt(dx * dx + dy * dy);
+            smoothedPinch =
+              smoothedPinch === null
+                ? rawPinch
+                : smoothedPinch + (rawPinch - smoothedPinch) * smoothing;
+            setPinchDistance(smoothedPinch);
+          }
+
+          if (hands.length > 1 && hands[1].length > 0) {
+            const second = palmCentroid(hands[1]);
+            smoothedSecond = smoothedSecond
+              ? {
+                  x: smoothedSecond.x + (second.x - smoothedSecond.x) * smoothing,
+                  y: smoothedSecond.y + (second.y - smoothedSecond.y) * smoothing,
+                }
+              : second;
+            setSecondPoint(smoothedSecond);
+          } else if (smoothedSecond !== null) {
+            smoothedSecond = null;
+            setSecondPoint(null);
           }
         } catch {
           // Frame failed — skip and try again next tick.
@@ -138,12 +178,16 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
       landmarker?.close?.();
       landmarker = null;
       smoothed = null;
+      smoothedSecond = null;
+      smoothedPinch = null;
       setPoint(null);
+      setSecondPoint(null);
+      setPinchDistance(null);
       setStatus('idle');
     };
   }, [enabled, videoRef, smoothing]);
 
-  return { status, point, errorMessage };
+  return { status, point, secondPoint, pinchDistance, errorMessage };
 }
 
 function clamp01(n: number): number {
