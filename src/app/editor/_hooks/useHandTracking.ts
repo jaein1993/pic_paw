@@ -34,7 +34,13 @@ interface HandPoint {
 const HANDS_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240';
 
 // Landmark indices (same as Tasks Vision and standard 21-point model).
-const PALM_INDICES = [0, 9]; // wrist + middle MCP → palm centroid
+// Anchor on the row of MCP joints (index/middle/ring knuckles) — i.e. the
+// top edge of the palm where the fingers attach. The previous wrist+MCP
+// midpoint sat in the lower palm, which made the pet visually trail
+// *below* the user's hand and clip off the bottom of the frame as they
+// raised it. The MCP-row centroid puts the pet right where the user
+// perceives their hand to be.
+const PALM_INDICES = [5, 9, 13];
 const THUMB_TIP = 4;
 const INDEX_TIP = 8;
 const WRIST = 0;

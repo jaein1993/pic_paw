@@ -109,9 +109,10 @@ export function Compose() {
   const [handTrackingEnabled, setHandTrackingEnabled] = useState(true);
   const [petPlacementLocked, setPetPlacementLocked] = useState(false);
   const [captureFrozen, setCaptureFrozen] = useState(false);
-  // Rotation is the OIIA cat-meme spin — the app's signature gesture, so
-  // it's on by default. User can toggle off if it gets in the way.
-  const [rotationEnabled, setRotationEnabled] = useState(true);
+  // Rotation is opt-in — too easy to accidentally spin the pet otherwise.
+  // User explicitly turns it on via the 🌀 회전 toggle when they want the
+  // OIIA cat-meme tornado effect.
+  const [rotationEnabled, setRotationEnabled] = useState(false);
 
   const {
     status: handStatus,
@@ -743,8 +744,12 @@ ua:        ${debugInfo.ua}`}
           onClick={() => {
             setPetPosition({ x: 0.72, y: 0.6 });
             resetSpin();
+            // Without locking, the next hand-tracking tick (~50 ms later)
+            // would snap the pet right back to the user's hand and the
+            // reset would be invisible. Lock so the default position
+            // sticks until the user taps "다시 조정" to resume tracking.
+            setPetPlacementLocked(true);
           }}
-          disabled={petPlacementLocked}
           className="w-full"
         >
           <span className="flex flex-col items-center leading-tight whitespace-nowrap">
