@@ -28,6 +28,8 @@ const LABELS: Record<InAppKind, string> = {
   other: '인앱',
 };
 
+const REDIRECT_FLAG = 'pic-paw:inapp-redirected';
+
 export function InAppBrowserBanner() {
   const [kind, setKind] = useState<InAppKind | null>(null);
   const [android, setAndroid] = useState(false);
@@ -36,8 +38,24 @@ export function InAppBrowserBanner() {
 
   useEffect(() => {
     const ua = navigator.userAgent;
-    setKind(detectInApp(ua));
-    setAndroid(isAndroid(ua));
+    const detected = detectInApp(ua);
+    setKind(detected);
+    const isAnd = isAndroid(ua);
+    setAndroid(isAnd);
+
+    // Android KakaoTalk exposes a force-external-browser URL scheme. Fire it
+    // automatically once per session so the user doesn't have to tap the
+    // banner button — they just get sent to Chrome/Samsung Internet directly.
+    if (detected === 'kakao' && isAnd) {
+      const already = sessionStorage.getItem(REDIRECT_FLAG);
+      if (!already) {
+        sessionStorage.setItem(REDIRECT_FLAG, '1');
+        const timer = setTimeout(() => {
+          window.location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(window.location.href)}`;
+        }, 250);
+        return () => clearTimeout(timer);
+      }
+    }
   }, []);
 
   if (!kind || dismissed) return null;
