@@ -37,12 +37,17 @@ export interface BorderStyle {
   textColor: string;
 }
 
+// Per-cut animated frames captured during the 5-second countdown.
+// Each cut holds ~40 canvases (8fps × 5s) at small resolution for GIF/WebM.
+export type CutFrames = HTMLCanvasElement[];
+
 export interface EditorState {
   currentStep: EditorStep;
   petImageUrl: string | null;
   petOriginalFile: File | null;
   petPosition: PetPosition;
   shots: Shot[];
+  cutFrames: CutFrames[];
   selectedBorderId: string | null;
   speechText: string;
   setStep: (step: EditorStep) => void;
@@ -51,6 +56,8 @@ export interface EditorState {
   setPetPosition: (pos: Partial<PetPosition>) => void;
   pushShot: (shot: Shot) => void;
   clearShots: () => void;
+  setCutFrames: (cutIndex: number, frames: CutFrames) => void;
+  clearCutFrames: () => void;
   setSelectedBorderId: (id: string | null) => void;
   setSpeechText: (s: string) => void;
   reset: () => void;

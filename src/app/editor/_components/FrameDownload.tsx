@@ -7,7 +7,13 @@ import type Konva from 'konva';
 import { useEditorState } from '@/app/editor/_hooks/useEditorState';
 import { useTheme } from '@/shared/hooks/useTheme';
 import type { ThemeVersion } from '@/shared/types';
-import { downloadDataURL, shareDataURL } from '@/app/editor/_lib/download';
+import {
+  downloadBlob,
+  downloadDataURL,
+  shareDataURL,
+} from '@/app/editor/_lib/download';
+import { encodeGif } from '@/app/editor/_lib/gifEncoder';
+import { encodeWebm } from '@/app/editor/_lib/webmEncoder';
 import { Button } from '@/shared/components/ui/Button';
 import { SPEECH_BUBBLE_ASPECT } from './decorations';
 
@@ -66,8 +72,9 @@ function frameStyleFor(version: ThemeVersion): FrameStyle {
   };
 }
 
-export function Step4_FrameDownload() {
-  const { petImageUrl, shots, setStep, speechText, setSpeechText } = useEditorState();
+export function FrameDownload() {
+  const { petImageUrl, shots, cutFrames, setStep, speechText, setSpeechText } =
+    useEditorState();
   const { version } = useTheme();
   const frame = useMemo(() => frameStyleFor(version), [version]);
 
@@ -86,6 +93,9 @@ export function Step4_FrameDownload() {
 
   const [shareResult, setShareResult] = useState<'idle' | 'copied' | 'shared'>('idle');
   const [speechDraft, setSpeechDraft] = useState(speechText);
+  const [encoding, setEncoding] = useState<null | 'gif' | 'webm'>(null);
+  const [encodeProgress, setEncodeProgress] = useState(0);
+  const [encodeError, setEncodeError] = useState<string | null>(null);
 
   const dateString = useMemo(() => {
     const d = new Date();
@@ -115,6 +125,71 @@ export function Step4_FrameDownload() {
     setShareResult(shared ? 'shared' : 'copied');
     setTimeout(() => setShareResult('idle'), 2000);
   }, []);
+
+  const metaText = `${dateString}   ·   PET 4 CUT   ·   ${serial}`;
+
+  const haveAnimatedFrames =
+    cutFrames.length === 4 && cutFrames.every((arr) => arr.length > 0);
+
+  const handleDownloadGif = useCallback(async () => {
+    if (encoding) return;
+    setEncoding('gif');
+    setEncodeProgress(0);
+    setEncodeError(null);
+    try {
+      const blob = await encodeGif({
+        cutFrames,
+        bgColor: frame.bg,
+        inkColor: frame.ink,
+        metaColor: frame.meta,
+        brandText: frame.brandText,
+        brandFont: frame.brandFont,
+        brandFontWeight: frame.brandFontStyle,
+        metaFont: frame.metaFont,
+        outerBorder: frame.outerBorder,
+        outerBorderColor: frame.outerBorderColor,
+        innerBorderColor: frame.innerBorderColor,
+        metaText,
+        onProgress: (p) => setEncodeProgress(p),
+      });
+      downloadBlob(blob, `pic-paw_${Date.now()}.gif`);
+    } catch (err) {
+      setEncodeError(err instanceof Error ? err.message : 'GIF 생성 실패');
+    } finally {
+      setEncoding(null);
+      setEncodeProgress(0);
+    }
+  }, [cutFrames, encoding, frame, metaText]);
+
+  const handleDownloadWebm = useCallback(async () => {
+    if (encoding) return;
+    setEncoding('webm');
+    setEncodeProgress(0);
+    setEncodeError(null);
+    try {
+      const blob = await encodeWebm({
+        cutFrames,
+        bgColor: frame.bg,
+        inkColor: frame.ink,
+        metaColor: frame.meta,
+        brandText: frame.brandText,
+        brandFont: frame.brandFont,
+        brandFontWeight: frame.brandFontStyle,
+        metaFont: frame.metaFont,
+        outerBorder: frame.outerBorder,
+        outerBorderColor: frame.outerBorderColor,
+        innerBorderColor: frame.innerBorderColor,
+        metaText,
+        onProgress: (p) => setEncodeProgress(p),
+      });
+      downloadBlob(blob, `pic-paw_${Date.now()}.webm`);
+    } catch (err) {
+      setEncodeError(err instanceof Error ? err.message : 'WebM 생성 실패');
+    } finally {
+      setEncoding(null);
+      setEncodeProgress(0);
+    }
+  }, [cutFrames, encoding, frame, metaText]);
 
   const haveAllShots = shots.length >= 4;
   const petW = CELL_W * PET_REL;
@@ -274,11 +349,40 @@ export function Step4_FrameDownload() {
         </div>
       )}
 
-      <div className="flex gap-3 flex-wrap justify-center">
-        <Button onClick={handleDownload} size="lg" disabled={!haveAllShots}>
-          다운로드
+      <div className="flex gap-2 flex-wrap justify-center">
+        <Button
+          onClick={handleDownload}
+          size="lg"
+          disabled={!haveAllShots || encoding !== null}
+        >
+          사진
         </Button>
-        <Button onClick={handleShare} variant="secondary" size="lg" disabled={!haveAllShots}>
+        <Button
+          onClick={handleDownloadGif}
+          size="lg"
+          disabled={!haveAnimatedFrames || encoding !== null}
+        >
+          {encoding === 'gif'
+            ? `GIF ${Math.round(encodeProgress * 100)}%`
+            : 'GIF'}
+        </Button>
+        <Button
+          onClick={handleDownloadWebm}
+          size="lg"
+          disabled={!haveAnimatedFrames || encoding !== null}
+        >
+          {encoding === 'webm'
+            ? `영상 ${Math.round(encodeProgress * 100)}%`
+            : '영상'}
+        </Button>
+      </div>
+
+      <div className="flex gap-3 flex-wrap justify-center">
+        <Button
+          onClick={handleShare}
+          variant="secondary"
+          disabled={!haveAllShots || encoding !== null}
+        >
           {shareResult === 'shared'
             ? '공유 완료!'
             : shareResult === 'copied'
@@ -287,7 +391,15 @@ export function Step4_FrameDownload() {
         </Button>
       </div>
 
-      <Button variant="ghost" onClick={() => setStep(3)}>
+      {encodeError && (
+        <p className="text-sm text-red-500 text-center max-w-md">{encodeError}</p>
+      )}
+
+      <Button
+        variant="ghost"
+        onClick={() => setStep(3)}
+        disabled={encoding !== null}
+      >
         다시 촬영
       </Button>
     </div>

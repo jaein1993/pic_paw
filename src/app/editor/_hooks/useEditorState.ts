@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import type { EditorStep, EditorState, PetPosition, Shot } from '@/shared/types';
+import type {
+  EditorStep,
+  EditorState,
+  PetPosition,
+  Shot,
+  CutFrames,
+} from '@/shared/types';
 import { BORDERS } from '@/app/editor/_constants/borders';
 
 // Dog defaults to the right side so the user (selfie, mirrored) appears on
@@ -14,6 +20,7 @@ export const useEditorState = create<EditorState>((set) => ({
   petOriginalFile: null,
   petPosition: { ...INITIAL_PET_POSITION },
   shots: [],
+  cutFrames: [[], [], [], []],
   selectedBorderId: INITIAL_BORDER_ID,
   speechText: '',
 
@@ -24,6 +31,13 @@ export const useEditorState = create<EditorState>((set) => ({
     set((state) => ({ petPosition: { ...state.petPosition, ...pos } })),
   pushShot: (shot: Shot) => set((state) => ({ shots: [...state.shots, shot] })),
   clearShots: () => set({ shots: [] }),
+  setCutFrames: (cutIndex: number, frames: CutFrames) =>
+    set((state) => {
+      const next = [...state.cutFrames];
+      next[cutIndex] = frames;
+      return { cutFrames: next };
+    }),
+  clearCutFrames: () => set({ cutFrames: [[], [], [], []] }),
   setSelectedBorderId: (id: string | null) => set({ selectedBorderId: id }),
   setSpeechText: (s: string) => set({ speechText: s }),
   reset: () =>
@@ -33,6 +47,7 @@ export const useEditorState = create<EditorState>((set) => ({
       petOriginalFile: null,
       petPosition: { ...INITIAL_PET_POSITION },
       shots: [],
+      cutFrames: [[], [], [], []],
       selectedBorderId: INITIAL_BORDER_ID,
       speechText: '',
     }),

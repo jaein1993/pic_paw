@@ -20,6 +20,11 @@ const FLASH_MS = 200;
 const REST_MS = 1500;
 const PET_REL = 0.55;
 
+// Per-cell GIF/WebM frame recording during the 5-second countdown.
+const FRAME_SIZE = 200;
+const FRAME_FPS = 8;
+const FRAME_INTERVAL_MS = 1000 / FRAME_FPS;
+
 function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
   const [size, setSize] = useState(360);
   useEffect(() => {
@@ -41,7 +46,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function Step3_Compose() {
+export function Compose() {
   const {
     petImageUrl,
     petPosition,
@@ -51,6 +56,8 @@ export function Step3_Compose() {
     setStep,
     shots,
     setSpeechText,
+    setCutFrames,
+    clearCutFrames,
   } = useEditorState();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -108,6 +115,7 @@ export function Step3_Compose() {
   useEffect(() => {
     if (!sessionRef.current && shots.length > 0) {
       clearShots();
+      clearCutFrames();
       setSpeechText('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -142,6 +150,37 @@ export function Step3_Compose() {
     },
     [setPetPosition, size]
   );
+
+  // Synchronous small-canvas snapshot used by the GIF/WebM frame recorder.
+  // Keeps composition (mirrored video + pet overlay) but at FRAME_SIZE.
+  const captureSmallFrame = useCallback((): HTMLCanvasElement | null => {
+    const v = videoRef.current;
+    const stage = stageRef.current;
+    if (!v || !stage) return null;
+    if (!v.videoWidth || !v.videoHeight) return null;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = FRAME_SIZE;
+    canvas.height = FRAME_SIZE;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    const vw = v.videoWidth;
+    const vh = v.videoHeight;
+    const side = Math.min(vw, vh);
+    const sx = (vw - side) / 2;
+    const sy = (vh - side) / 2;
+    ctx.save();
+    ctx.translate(FRAME_SIZE, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(v, sx, sy, side, side, 0, 0, FRAME_SIZE, FRAME_SIZE);
+    ctx.restore();
+
+    const stageCanvas = stage.toCanvas({ pixelRatio: FRAME_SIZE / size });
+    ctx.drawImage(stageCanvas, 0, 0, FRAME_SIZE, FRAME_SIZE);
+
+    return canvas;
+  }, [size]);
 
   const captureFrame = useCallback(async (): Promise<string | null> => {
     const v = videoRef.current;
@@ -182,15 +221,30 @@ export function Step3_Compose() {
     setBusy(true);
     sessionRef.current = true;
     clearShots();
+    clearCutFrames();
     setShotsTakenLocal(0);
 
     try {
       for (let i = 0; i < SHOTS_TARGET; i++) {
+        // Begin recording frames for this cut at FRAME_FPS.
+        const cutFrames: HTMLCanvasElement[] = [];
+        let recording = true;
+        const recorderId = window.setInterval(() => {
+          if (!recording) return;
+          const f = captureSmallFrame();
+          if (f) cutFrames.push(f);
+        }, FRAME_INTERVAL_MS);
+
         for (let c = COUNTDOWN_FROM; c >= 1; c--) {
           setCountdown(c);
           await delay(1000);
         }
         setCountdown(null);
+
+        // Stop the recorder for this cut and persist its frames.
+        recording = false;
+        window.clearInterval(recorderId);
+        setCutFrames(i, cutFrames);
 
         setCaptureFrozen(true);
         await delay(50);
@@ -225,7 +279,16 @@ export function Step3_Compose() {
       setFlash(false);
       setCaptureFrozen(false);
     }
-  }, [busy, captureFrame, clearShots, pushShot, setStep]);
+  }, [
+    busy,
+    captureFrame,
+    captureSmallFrame,
+    clearCutFrames,
+    clearShots,
+    pushShot,
+    setCutFrames,
+    setStep,
+  ]);
 
   const handleBack = () => {
     stopStream(streamRef.current);

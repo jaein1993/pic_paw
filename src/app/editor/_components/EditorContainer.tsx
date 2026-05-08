@@ -2,10 +2,10 @@
 
 import { useEditorState } from '@/app/editor/_hooks/useEditorState';
 import { Header } from '@/shared/components/layout/Header';
-import { Step1_PetUpload } from './Step1_PetUpload';
-import { Step2_BackgroundChoice } from './Step2_BackgroundChoice';
-import { Step3_Compose } from './Step3_Compose';
-import { Step4_FrameDownload } from './Step4_FrameDownload';
+import { PetUpload } from './PetUpload';
+import { BackgroundChoice } from './BackgroundChoice';
+import { Compose } from './Compose';
+import { FrameDownload } from './FrameDownload';
 import { cn } from '@/shared/lib/utils';
 
 const STEP_LABELS = [
@@ -72,10 +72,10 @@ export default function EditorContainer() {
       </div>
 
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-8 sm:px-6">
-        {currentStep === 1 && <Step1_PetUpload />}
-        {currentStep === 2 && <Step2_BackgroundChoice />}
-        {currentStep === 3 && <Step3_Compose />}
-        {currentStep === 4 && <Step4_FrameDownload />}
+        {currentStep === 1 && <PetUpload />}
+        {currentStep === 2 && <BackgroundChoice />}
+        {currentStep === 3 && <Compose />}
+        {currentStep === 4 && <FrameDownload />}
       </main>
     </div>
   );

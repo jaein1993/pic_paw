@@ -9,7 +9,7 @@ import { FileDropzone } from './FileDropzone';
 import { BackgroundRemovalProgress } from './BackgroundRemovalProgress';
 import { Button } from '@/shared/components/ui/Button';
 
-export function Step1_PetUpload() {
+export function PetUpload() {
   const { petImageUrl, petOriginalFile, setPetImageUrl, setPetOriginalFile, setStep } =
     useEditorState();
   const [pendingFile, setPendingFile] = useState<File | null>(petOriginalFile);

@@ -5,7 +5,7 @@ import { useEditorState } from '@/app/editor/_hooks/useEditorState';
 import { useCamera } from '@/app/editor/_hooks/useCamera';
 import { Button } from '@/shared/components/ui/Button';
 
-export function Step2_BackgroundChoice() {
+export function BackgroundChoice() {
   const { setStep } = useEditorState();
   const camera = useCamera();
   const [granted, setGranted] = useState(false);
