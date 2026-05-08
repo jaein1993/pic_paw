@@ -100,7 +100,7 @@ export function InAppBrowserBanner() {
                 1. 아래 <b>'URL 복사'</b> 버튼 누르기
               </li>
               <li>
-                2. <b>Safari</b> 앱 열기
+                2. <b>Safari·Chrome</b> 등 웹 브라우저 앱 열기
               </li>
               <li>3. 주소창 길게 눌러 붙여넣기 → 이동</li>
             </ol>
@@ -111,6 +111,9 @@ export function InAppBrowserBanner() {
               </li>
               <li>
                 2. <b>'외부 브라우저로 열기'</b> 또는 <b>'다른 브라우저로'</b> 선택
+              </li>
+              <li className="text-ink/60 text-xs">
+                ※ 안 보이면 'URL 복사' 후 Chrome·Samsung Internet 등에 붙여넣기
               </li>
             </ol>
           )}
