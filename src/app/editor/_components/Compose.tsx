@@ -419,6 +419,10 @@ export function Compose() {
 
     try {
       for (let i = 0; i < SHOTS_TARGET; i++) {
+        // Auto-unlock at the start of each cut so the user can re-position
+        // for the next take without manually pressing "다시 조정".
+        setPetPlacementLocked(false);
+
         // Begin recording frames for this cut at FRAME_FPS.
         const cutFrames: HTMLCanvasElement[] = [];
         let recording = true;
