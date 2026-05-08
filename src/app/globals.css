@@ -85,11 +85,13 @@ body {
   font-family: var(--font-sans);
 }
 
-/* On wide PC screens the layout reads tall — the editor's camera + buttons
- * push past the fold at 100% browser zoom. Shrink to 80% by default so
- * everything fits in one viewport. Mobile keeps its native scale. */
+/* On wide PC screens shrink rem-based sizes so the editor's camera + buttons
+ * fit in one viewport. We use `font-size` (not `zoom`) because zoom shrinks
+ * the entire layout including 100vh containers, which made the Footer pop
+ * up mid-screen on shorter pages. font-size scales text/padding/spacing
+ * (everything rem-based in Tailwind) while leaving viewport math intact. */
 @media (min-width: 1024px) {
   html {
-    zoom: 0.8;
+    font-size: 80%;
   }
 }
