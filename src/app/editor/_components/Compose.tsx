@@ -26,11 +26,12 @@ const FRAME_FPS = 8;
 const FRAME_INTERVAL_MS = 1000 / FRAME_FPS;
 
 // Two-hand rotation: each frame's hand-twist Δangle becomes an angular-
-// velocity impulse with momentum + decay (OIIA-cat tornado feel). Continuous
-// twisting accumulates speed; releasing lets the pet keep spinning briefly.
-const TWO_HAND_ROT_IMPULSE = 5;
-const ROT_DECAY = 0.93;
-const ROT_VELOCITY_MAX = 35; // deg per rAF tick (≈60fps)
+// velocity impulse with momentum + slow decay (OIIA-cat tornado feel). Brief
+// quick twists pile up to the cap fast and the pet keeps spinning for a few
+// seconds afterwards.
+const TWO_HAND_ROT_IMPULSE = 12;
+const ROT_DECAY = 0.97;
+const ROT_VELOCITY_MAX = 55; // deg per rAF tick (≈60fps) → ≈9 rotations/sec
 const ROT_VELOCITY_FLOOR = 0.05;
 
 // Scale gestures — multiplies pet base size:
@@ -46,8 +47,11 @@ const SCALE_MAX = 3.0;
 const SCALE_DEFAULT = 1.0;
 const SCALE_SMOOTH = 0.22;
 const TWO_HAND_SCALE_MULT = 4.5;
-const PINCH_SCALE_MULT = 38;
-const PINCH_ACTIVE_THRESHOLD = 0.08;
+// Hysteresis: pinch must close BELOW _ENTER to engage, then stays active
+// until it spreads ABOVE _EXIT. The wide active window lets the user start
+// from a tight pinch and stretch open to grow the pet without dropping out.
+const PINCH_ENTER_THRESHOLD = 0.07;
+const PINCH_EXIT_THRESHOLD = 0.25;
 
 function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
   const [size, setSize] = useState(360);
@@ -176,6 +180,7 @@ export function Compose() {
   const scaleRef = useRef(SCALE_DEFAULT);
   const targetScaleRef = useRef(SCALE_DEFAULT);
   const pinchAnchorRef = useRef<{ scale: number; pinchDist: number } | null>(null);
+  const pinchActiveRef = useRef(false);
 
   // rAF loop: bleed spin velocity (rotation) + lerp scale toward target.
   useEffect(() => {
@@ -204,34 +209,44 @@ export function Compose() {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
-  // ONE-HAND pinch → scale (grab-and-stretch). When pinch first activates
-  // we anchor (current scale, current pinch distance). While held, scale =
-  // anchorScale × (currentPinch / anchorPinch). Releasing the pinch resets
-  // the anchor so the next pinch starts fresh from the new size.
+  // ONE-HAND pinch → scale (grab-and-stretch with hysteresis). User must
+  // tightly pinch (distance < ENTER) to engage; once engaged, the anchor
+  // (current scale, current pinch distance) is recorded. Subsequent samples
+  // map scale = anchorScale × (currentPinch / anchorPinch), so the user can
+  // *spread* fingers wide to grow the pet without the gesture dropping out.
+  // Only when the spread exceeds EXIT does the gesture release.
   useEffect(() => {
-    if (!handTrackingEnabled || captureFrozen) {
+    if (
+      !handTrackingEnabled ||
+      captureFrozen ||
+      (handPoint && handSecondPoint) ||
+      pinchDistance === null
+    ) {
       pinchAnchorRef.current = null;
+      pinchActiveRef.current = false;
       return;
     }
-    if (handPoint && handSecondPoint) {
-      pinchAnchorRef.current = null;
+
+    if (!pinchActiveRef.current) {
+      // Waiting for an explicit pinch close to engage.
+      if (pinchDistance < PINCH_ENTER_THRESHOLD) {
+        pinchActiveRef.current = true;
+        pinchAnchorRef.current = {
+          scale: scaleRef.current,
+          pinchDist: pinchDistance,
+        };
+      }
       return;
     }
-    const pinching =
-      pinchDistance !== null && pinchDistance < PINCH_ACTIVE_THRESHOLD;
-    if (!pinching || pinchDistance === null) {
+
+    // Active — release only when fingers spread past EXIT.
+    if (pinchDistance > PINCH_EXIT_THRESHOLD) {
+      pinchActiveRef.current = false;
       pinchAnchorRef.current = null;
-      return;
-    }
-    if (pinchAnchorRef.current === null) {
-      pinchAnchorRef.current = {
-        scale: scaleRef.current,
-        pinchDist: pinchDistance,
-      };
       return;
     }
     const anchor = pinchAnchorRef.current;
-    if (anchor.pinchDist <= 0) return;
+    if (!anchor || anchor.pinchDist <= 0) return;
     const target = anchor.scale * (pinchDistance / anchor.pinchDist);
     targetScaleRef.current = Math.max(SCALE_MIN, Math.min(SCALE_MAX, target));
   }, [handPoint, handSecondPoint, pinchDistance, handTrackingEnabled, captureFrozen]);
@@ -274,6 +289,7 @@ export function Compose() {
     spinVelocityRef.current = 0;
     lastTwoHandAngleRef.current = null;
     pinchAnchorRef.current = null;
+    pinchActiveRef.current = false;
     setPetRotation(0);
     targetScaleRef.current = SCALE_DEFAULT;
     scaleRef.current = SCALE_DEFAULT;
