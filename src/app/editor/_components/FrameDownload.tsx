@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Group, Image as KonvaImage, Rect, Text } from 'react-konva';
 import useImage from 'use-image';
 import type Konva from 'konva';
@@ -78,6 +78,26 @@ export function FrameDownload() {
   const frame = useMemo(() => frameStyleFor(version), [version]);
 
   const stageRef = useRef<Konva.Stage>(null);
+  const stripContainerRef = useRef<HTMLDivElement>(null);
+  const [displayWidth, setDisplayWidth] = useState(STRIP_W);
+
+  // Track the strip container's actual rendered width so we can downscale the
+  // Konva Stage on narrow screens. Without this the 360px-wide strip overflows
+  // mobile viewports and the bottom cells get clipped by overflow:hidden.
+  useEffect(() => {
+    const el = stripContainerRef.current;
+    if (!el) return;
+    const update = () => {
+      setDisplayWidth(Math.min(STRIP_W, el.offsetWidth));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const displayScale = displayWidth / STRIP_W;
+  const displayHeight = STRIP_H * displayScale;
 
   const slot0Url = shots[0]?.dataUrl ?? '';
   const slot1Url = shots[1]?.dataUrl ?? '';
@@ -108,21 +128,25 @@ export function FrameDownload() {
     return `NO.${n}`;
   }, []);
 
+  // Export the strip at 2× the original (un-scaled) STRIP_W resolution so a
+  // downscaled-on-mobile preview still produces a sharp PNG.
+  const exportPixelRatio = (2 * STRIP_W) / Math.max(displayWidth, 1);
+
   const handleDownload = useCallback(async () => {
     const stage = stageRef.current;
     if (!stage) return;
-    const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+    const dataUrl = stage.toDataURL({ pixelRatio: exportPixelRatio });
     await downloadDataURL(dataUrl, `pic-paw_${Date.now()}.png`);
-  }, []);
+  }, [exportPixelRatio]);
 
   const handleShare = useCallback(async () => {
     const stage = stageRef.current;
     if (!stage) return;
-    const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+    const dataUrl = stage.toDataURL({ pixelRatio: exportPixelRatio });
     const shared = await shareDataURL(dataUrl, 'pic-paw.png');
     setShareResult(shared ? 'shared' : 'copied');
     setTimeout(() => setShareResult('idle'), 2000);
-  }, []);
+  }, [exportPixelRatio]);
 
   const metaText = `${dateString}   ·   PET 4 CUT   ·   ${serial}`;
 
@@ -228,16 +252,24 @@ export function FrameDownload() {
       )}
 
       <div
+        ref={stripContainerRef}
         className={`overflow-hidden ${frame.containerClass}`}
         style={{
           width: STRIP_W,
           maxWidth: '100%',
+          height: displayHeight,
           border: frame.outerBorder
             ? `${frame.outerBorder}px solid ${frame.outerBorderColor}`
             : 'none',
         }}
       >
-        <Stage ref={stageRef} width={STRIP_W} height={STRIP_H}>
+        <Stage
+          ref={stageRef}
+          width={displayWidth}
+          height={displayHeight}
+          scaleX={displayScale}
+          scaleY={displayScale}
+        >
           <Layer>
             <Rect x={0} y={0} width={STRIP_W} height={STRIP_H} fill={frame.bg} />
 

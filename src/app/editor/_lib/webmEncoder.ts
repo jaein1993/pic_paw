@@ -69,11 +69,13 @@ export async function encodeWebm(config: WebmEncodeConfig): Promise<Blob> {
     throw new Error('이 브라우저는 WebM 녹화를 지원하지 않아요. (Safari는 GIF로 다운로드해주세요)');
   }
 
-  const minLen = cutFrames.reduce(
-    (m, arr) => (arr.length === 0 ? 0 : Math.min(m, arr.length)),
-    Number.POSITIVE_INFINITY,
+  // Use the longest cut as the video length. Cuts with fewer frames freeze
+  // on their last frame; empty cuts stay blank.
+  const maxLen = cutFrames.reduce(
+    (m, arr) => Math.max(m, arr.length),
+    0,
   );
-  if (!Number.isFinite(minLen) || minLen === 0) {
+  if (maxLen === 0) {
     throw new Error('녹화된 프레임이 없습니다.');
   }
 
@@ -129,15 +131,15 @@ export async function encodeWebm(config: WebmEncodeConfig): Promise<Blob> {
 
   recorder.start();
 
-  for (let frameIdx = 0; frameIdx < minLen; frameIdx++) {
+  for (let frameIdx = 0; frameIdx < maxLen; frameIdx++) {
     for (let i = 0; i < 4; i++) {
       const cellY = HEADER_H + i * (CELL_H + GAP);
-      const cutImg = cutFrames[i]?.[frameIdx];
-      if (cutImg) {
-        ctx.drawImage(cutImg, CELL_X, cellY, CELL_W, CELL_H);
-      }
+      const arr = cutFrames[i];
+      if (!arr || arr.length === 0) continue;
+      const idx = Math.min(frameIdx, arr.length - 1);
+      ctx.drawImage(arr[idx], CELL_X, cellY, CELL_W, CELL_H);
     }
-    onProgress?.((frameIdx + 1) / minLen);
+    onProgress?.((frameIdx + 1) / maxLen);
     await delay(FRAME_INTERVAL_MS);
   }
 

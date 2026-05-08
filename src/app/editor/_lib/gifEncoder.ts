@@ -48,11 +48,14 @@ export function encodeGif(config: GifEncodeConfig): Promise<Blob> {
     onProgress,
   } = config;
 
-  const minLen = cutFrames.reduce(
-    (m, arr) => (arr.length === 0 ? 0 : Math.min(m, arr.length)),
-    Number.POSITIVE_INFINITY,
+  // Use the longest cut as the GIF length. Cuts with fewer frames freeze on
+  // their last frame; empty cuts stay blank. This way a partial booth (2 of
+  // 4 cuts) still renders.
+  const maxLen = cutFrames.reduce(
+    (m, arr) => Math.max(m, arr.length),
+    0,
   );
-  if (!Number.isFinite(minLen) || minLen === 0) {
+  if (maxLen === 0) {
     return Promise.reject(new Error('녹화된 프레임이 없습니다.'));
   }
 
@@ -109,7 +112,7 @@ export function encodeGif(config: GifEncodeConfig): Promise<Blob> {
     repeat: 0,
   });
 
-  for (let frameIdx = 0; frameIdx < minLen; frameIdx++) {
+  for (let frameIdx = 0; frameIdx < maxLen; frameIdx++) {
     const frameCanvas = document.createElement('canvas');
     frameCanvas.width = GIF_STRIP_W;
     frameCanvas.height = GIF_STRIP_H;
@@ -119,10 +122,10 @@ export function encodeGif(config: GifEncodeConfig): Promise<Blob> {
 
     for (let i = 0; i < 4; i++) {
       const cellY = GIF_HEADER_H + i * (GIF_CELL_H + GIF_GAP);
-      const cutImg = cutFrames[i]?.[frameIdx];
-      if (cutImg) {
-        fctx.drawImage(cutImg, GIF_CELL_X, cellY, GIF_CELL_W, GIF_CELL_H);
-      }
+      const arr = cutFrames[i];
+      if (!arr || arr.length === 0) continue;
+      const idx = Math.min(frameIdx, arr.length - 1);
+      fctx.drawImage(arr[idx], GIF_CELL_X, cellY, GIF_CELL_W, GIF_CELL_H);
     }
 
     gif.addFrame(frameCanvas, { delay: FRAME_DELAY_MS, copy: true });
