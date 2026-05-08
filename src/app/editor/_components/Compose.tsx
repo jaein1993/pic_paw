@@ -633,11 +633,13 @@ export function Compose() {
           type="button"
           variant={petPlacementLocked ? 'primary' : 'secondary'}
           onClick={() => setPetPlacementLocked((v) => !v)}
-          className="w-full leading-tight"
+          className="w-full"
           aria-pressed={petPlacementLocked}
         >
-          <span className="block">{petPlacementLocked ? '다시' : '위치'}</span>
-          <span className="block">{petPlacementLocked ? '조정' : '고정'}</span>
+          <span className="flex flex-col items-center leading-tight whitespace-nowrap">
+            <span>{petPlacementLocked ? '다시' : '위치'}</span>
+            <span>{petPlacementLocked ? '조정' : '고정'}</span>
+          </span>
         </Button>
         <Button
           type="button"
@@ -647,10 +649,12 @@ export function Compose() {
             resetSpin();
           }}
           disabled={petPlacementLocked}
-          className="w-full leading-tight"
+          className="w-full"
         >
-          <span className="block">위치</span>
-          <span className="block">초기화</span>
+          <span className="flex flex-col items-center leading-tight whitespace-nowrap">
+            <span>위치</span>
+            <span>초기화</span>
+          </span>
         </Button>
         <Button
           type="button"
@@ -667,11 +671,13 @@ export function Compose() {
             }
           }}
           disabled={petPlacementLocked}
-          className="w-full leading-tight"
+          className="w-full"
           aria-pressed={rotationEnabled}
         >
-          <span className="block">🌀 회전</span>
-          <span className="block">{rotationEnabled ? 'OFF' : 'ON'}</span>
+          <span className="flex flex-col items-center leading-tight whitespace-nowrap">
+            <span>🌀 회전</span>
+            <span>{rotationEnabled ? 'OFF' : 'ON'}</span>
+          </span>
         </Button>
       </div>
 
