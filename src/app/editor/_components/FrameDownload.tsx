@@ -73,8 +73,7 @@ function frameStyleFor(version: ThemeVersion): FrameStyle {
 }
 
 export function FrameDownload() {
-  const { petImageUrl, shots, cutFrames, setStep, speechText, setSpeechText } =
-    useEditorState();
+  const { petImageUrl, shots, cutFrames, setStep, speechText } = useEditorState();
   const { version } = useTheme();
   const frame = useMemo(() => frameStyleFor(version), [version]);
 
@@ -92,7 +91,6 @@ export function FrameDownload() {
   const shotImages = [shot0, shot1, shot2, shot3];
 
   const [shareResult, setShareResult] = useState<'idle' | 'copied' | 'shared'>('idle');
-  const [speechDraft, setSpeechDraft] = useState(speechText);
   const [encoding, setEncoding] = useState<null | 'gif' | 'webm'>(null);
   const [encodeProgress, setEncodeProgress] = useState(0);
   const [encodeError, setEncodeError] = useState<string | null>(null);
@@ -194,10 +192,6 @@ export function FrameDownload() {
   const haveAllShots = shots.length >= 4;
   const petW = CELL_W * PET_REL;
   const petH = petImage ? petW * (petImage.height / petImage.width) : petW;
-
-  const applySpeechText = useCallback(() => {
-    setSpeechText(speechDraft.trim());
-  }, [setSpeechText, speechDraft]);
 
   const speechLayout = useMemo(() => {
     const shot = shots[2];
@@ -316,38 +310,6 @@ export function FrameDownload() {
           </Layer>
         </Stage>
       </div>
-
-      {haveAllShots && (
-        <div className="w-full max-w-md">
-          <label
-            htmlFor="final-speech-input"
-            className="block text-sm font-head font-extrabold text-ink mb-2"
-          >
-            말풍선 텍스트
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="final-speech-input"
-              type="text"
-              value={speechDraft}
-              onChange={(e) => setSpeechDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  applySpeechText();
-                  e.currentTarget.blur();
-                }
-              }}
-              placeholder="말풍선에 넣을 문구"
-              maxLength={20}
-              className="min-w-0 flex-1 px-3 py-2 border-2 border-ink bg-surface text-ink font-hand text-base focus:outline-none focus:bg-chip-bg"
-            />
-            <Button type="button" variant="secondary" onClick={applySpeechText}>
-              적용
-            </Button>
-          </div>
-          <p className="text-xs text-ink/60 mt-1">입력 후 엔터를 누르면 3번째 컷 말풍선에 적용됩니다.</p>
-        </div>
-      )}
 
       <div className="flex gap-2 flex-wrap justify-center">
         <Button

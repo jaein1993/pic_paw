@@ -11,13 +11,16 @@ export interface PetPosition {
 }
 
 // 4-cut booth decoration kind, fixed per cell index (0..3).
+// Decorations (sunglasses/speech/heart) are intentionally disabled for the
+// current build — the assets stay in the codebase so they can be re-enabled
+// per-cell without rewriting the overlay pipeline.
 export type DecorationKind = 'plain' | 'sunglasses' | 'speech' | 'heart';
 
 export const CELL_DECORATIONS: readonly DecorationKind[] = [
   'plain',
-  'sunglasses',
-  'speech',
-  'heart',
+  'plain',
+  'plain',
+  'plain',
 ];
 
 // One captured shot from the booth.
