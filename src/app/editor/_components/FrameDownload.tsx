@@ -104,8 +104,16 @@ export function FrameDownload() {
     };
   }, []);
 
-  const displayScale = displayWidth / STRIP_W;
-  const displayHeight = STRIP_H * displayScale;
+  // The container is `box-sizing: border-box`, so its border (kitsch theme
+  // adds 3 px) eats into the content area. Without compensating, Stage
+  // would overdraw to the right/bottom and get clipped by overflow-hidden,
+  // visibly cutting off the rightmost strip of pink. We size the Stage to
+  // the *inner* content area and grow the outer container to fit.
+  const borderPx = frame.outerBorder ?? 0;
+  const innerWidth = Math.max(0, displayWidth - borderPx * 2);
+  const innerHeight = innerWidth * (STRIP_H / STRIP_W);
+  const displayHeight = innerHeight + borderPx * 2;
+  const displayScale = innerWidth / STRIP_W;
 
   const slot0Url = shots[0]?.dataUrl ?? '';
   const slot1Url = shots[1]?.dataUrl ?? '';
@@ -137,8 +145,10 @@ export function FrameDownload() {
   }, []);
 
   // Export the strip at 2× the original (un-scaled) STRIP_W resolution so a
-  // downscaled-on-mobile preview still produces a sharp PNG.
-  const exportPixelRatio = (2 * STRIP_W) / Math.max(displayWidth, 1);
+  // downscaled-on-mobile preview still produces a sharp PNG. The Stage now
+  // measures `innerWidth` (was `displayWidth`), so the multiplier base
+  // changed accordingly.
+  const exportPixelRatio = (2 * STRIP_W) / Math.max(innerWidth, 1);
 
   const handleDownload = useCallback(async () => {
     const stage = stageRef.current;
@@ -273,8 +283,8 @@ export function FrameDownload() {
       >
         <Stage
           ref={stageRef}
-          width={displayWidth}
-          height={displayHeight}
+          width={innerWidth}
+          height={innerHeight}
           scaleX={displayScale}
           scaleY={displayScale}
         >
