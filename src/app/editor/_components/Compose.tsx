@@ -25,14 +25,10 @@ const FRAME_SIZE = 200;
 const FRAME_FPS = 8;
 const FRAME_INTERVAL_MS = 1000 / FRAME_FPS;
 
-// Tornado-mode spin engine: hand swirling around its own moving centroid feeds
-// angular impulse into the pet image. OIIA-cat style — accumulates with
-// momentum, decays on its own.
-const SPIN_AMPLIFY = 22;
-const SPIN_DECAY = 0.94;
-const SPIN_VELOCITY_MAX = 45; // deg per rAF tick (~60fps cap)
-const SPIN_VELOCITY_FLOOR = 0.02;
-const HAND_HISTORY_LEN = 5;
+// Two-hand rotation: angle of the line between the two palms drives the pet's
+// rotation directly. Multiplier > 1 amplifies the twist so the user can reach
+// big rotations without contorting their wrists.
+const TWO_HAND_ROTATION_MULT = 2.5;
 
 // Scale gestures — multiplies pet base size:
 //   • Two hands visible (always active): distance between palms → scale
@@ -163,29 +159,22 @@ export function Compose() {
     setPetPosition({ x: handPoint.x, y: handPoint.y });
   }, [handPoint, handTrackingEnabled, petPlacementLocked, captureFrozen, setPetPosition]);
 
-  // ─── Spin engine (OIIA tornado mode) ───────────────────────────────────────
+  // ─── Rotation + scale engine ────────────────────────────────────────────
+  // Rotation is driven exclusively by two-hand twist (angle of the line
+  // between palms). Scale is driven exclusively by one-hand pinch openness
+  // while fingers are closed. Position keeps using the primary palm centroid.
+  // Each gesture has a single role so they never fight each other.
   const [petRotation, setPetRotation] = useState(0);
   const [petScale, setPetScale] = useState(SCALE_DEFAULT);
   const rotationRef = useRef(0);
-  const spinVelocityRef = useRef(0);
-  const handHistoryRef = useRef<Array<{ x: number; y: number }>>([]);
+  const lastTwoHandAngleRef = useRef<number | null>(null);
   const scaleRef = useRef(SCALE_DEFAULT);
   const targetScaleRef = useRef(SCALE_DEFAULT);
 
-  // rAF-driven decay loop: applies current spin velocity to rotation each
-  // frame, then bleeds velocity. Also lerps petScale toward its target.
+  // rAF lerp for scale only — rotation is updated directly per hand sample.
   useEffect(() => {
     let rafId = 0;
     const tick = () => {
-      const v = spinVelocityRef.current;
-      if (Math.abs(v) > SPIN_VELOCITY_FLOOR) {
-        rotationRef.current += v;
-        spinVelocityRef.current = v * SPIN_DECAY;
-        setPetRotation(rotationRef.current);
-      } else if (v !== 0) {
-        spinVelocityRef.current = 0;
-      }
-
       const target = targetScaleRef.current;
       const cur = scaleRef.current;
       if (Math.abs(target - cur) > 0.001) {
@@ -193,79 +182,53 @@ export function Compose() {
         scaleRef.current = next;
         setPetScale(next);
       }
-
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   }, []);
 
-  // Map current hand gesture → target scale.
-  // Two-hand mode is always active. One-hand pinch only updates scale while
-  // the fingers are explicitly close (distance < PINCH_ACTIVE_THRESHOLD); a
-  // relaxed/open hand leaves scale frozen so it doesn't drift during rotation.
+  // ONE-HAND pinch → scale (only while fingers are explicitly close).
   useEffect(() => {
     if (!handTrackingEnabled || captureFrozen) return;
-    let target: number | null = null;
-    if (handPoint && handSecondPoint) {
-      const dx = handPoint.x - handSecondPoint.x;
-      const dy = handPoint.y - handSecondPoint.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      target = dist * TWO_HAND_SCALE_MULT;
-    } else if (
-      pinchDistance !== null &&
-      pinchDistance < PINCH_ACTIVE_THRESHOLD
-    ) {
-      target = pinchDistance * PINCH_SCALE_MULT;
-    }
-    if (target === null) return;
+    if (handPoint && handSecondPoint) return; // two-hand mode handles rotation, not scale
+    if (pinchDistance === null || pinchDistance >= PINCH_ACTIVE_THRESHOLD) return;
+    const target = pinchDistance * PINCH_SCALE_MULT;
     targetScaleRef.current = Math.max(SCALE_MIN, Math.min(SCALE_MAX, target));
   }, [handPoint, handSecondPoint, pinchDistance, handTrackingEnabled, captureFrozen]);
 
-  // Each new hand sample → add angular-velocity impulse based on how the hand
-  // is rotating around its own short-window centroid.
+  // TWO-HAND twist → rotation. Tracks angle of the line between the two
+  // palms; each new sample adds the delta (× multiplier) to pet rotation.
+  // When the second hand disappears the anchor resets so re-entering the
+  // gesture doesn't snap.
   useEffect(() => {
-    if (!handTrackingEnabled || !handPoint || captureFrozen) {
-      handHistoryRef.current = [];
+    if (!handTrackingEnabled || captureFrozen) {
+      lastTwoHandAngleRef.current = null;
       return;
     }
-    const hist = handHistoryRef.current;
-    hist.push({ x: handPoint.x, y: handPoint.y });
-    if (hist.length > HAND_HISTORY_LEN) hist.shift();
-    if (hist.length < 3) return;
-
-    let cx = 0;
-    let cy = 0;
-    for (const p of hist) {
-      cx += p.x;
-      cy += p.y;
+    if (!handPoint || !handSecondPoint) {
+      lastTwoHandAngleRef.current = null;
+      return;
     }
-    cx /= hist.length;
-    cy /= hist.length;
-
-    const curr = hist[hist.length - 1];
-    const prev = hist[hist.length - 2];
-    const rx = curr.x - cx;
-    const ry = curr.y - cy;
-    const r2 = rx * rx + ry * ry;
-    if (r2 < 0.0005) return;
-
-    const vx = curr.x - prev.x;
-    const vy = curr.y - prev.y;
-    const omega = (rx * vy - ry * vx) / r2;
-    const impulseDeg = omega * (180 / Math.PI) * SPIN_AMPLIFY;
-
-    const next = spinVelocityRef.current + impulseDeg;
-    spinVelocityRef.current = Math.max(
-      -SPIN_VELOCITY_MAX,
-      Math.min(SPIN_VELOCITY_MAX, next),
-    );
-  }, [handPoint, handTrackingEnabled, captureFrozen]);
+    const dx = handSecondPoint.x - handPoint.x;
+    const dy = handSecondPoint.y - handPoint.y;
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    const last = lastTwoHandAngleRef.current;
+    if (last === null) {
+      lastTwoHandAngleRef.current = angle;
+      return;
+    }
+    let delta = angle - last;
+    while (delta > 180) delta -= 360;
+    while (delta < -180) delta += 360;
+    lastTwoHandAngleRef.current = angle;
+    rotationRef.current += delta * TWO_HAND_ROTATION_MULT;
+    setPetRotation(rotationRef.current);
+  }, [handPoint, handSecondPoint, handTrackingEnabled, captureFrozen]);
 
   const resetSpin = useCallback(() => {
     rotationRef.current = 0;
-    spinVelocityRef.current = 0;
-    handHistoryRef.current = [];
+    lastTwoHandAngleRef.current = null;
     setPetRotation(0);
     targetScaleRef.current = SCALE_DEFAULT;
     scaleRef.current = SCALE_DEFAULT;
