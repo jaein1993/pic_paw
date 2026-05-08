@@ -86,6 +86,15 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
     let rafId = 0;
     let hands: HandsClass | null = null;
     let isSending = false;
+    // Min idle gap between successive `send()` calls. The MediaPipe Hands
+    // CalculatorGraph is otherwise CPU-saturating on mid-range Galaxies —
+    // it'll happily eat a whole core back-to-back, starving the camera,
+    // Konva re-render and the 1-second countdown timer. A 30 ms rest after
+    // each send caps effective inference at ~16–25 Hz (depending on send
+    // latency), which still feels smooth visually but leaves clear CPU
+    // headroom for everything else competing for the main thread.
+    const MIN_SEND_GAP_MS = 30;
+    let lastSendEndAt = 0;
     // Downscale frames to a tiny offscreen canvas before feeding MediaPipe.
     // MediaPipe Hands' input resolution is ~224×224 internally — passing a
     // 720×1280 video frame just makes its internal preprocessing do more
@@ -242,12 +251,21 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
 
     async function loop() {
       if (cancelled) return;
+      const now = performance.now();
+      const enoughGap = now - lastSendEndAt >= MIN_SEND_GAP_MS;
       const video = videoRef.current;
-      if (video && video.readyState >= 2 && hands && !isSending && offCtx) {
+      if (
+        enoughGap &&
+        video &&
+        video.readyState >= 2 &&
+        hands &&
+        !isSending &&
+        offCtx
+      ) {
         isSending = true;
         try {
           detectCallsRef.current += 1;
-          lastDetectAtRef.current = performance.now();
+          lastDetectAtRef.current = now;
           // Square-crop the (likely portrait) video frame into the
           // INFER_SIZE×INFER_SIZE canvas so the model doesn't waste capacity
           // on a stretched aspect ratio.
@@ -265,6 +283,7 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
           console.warn('[handTracking] send failed', err);
         } finally {
           isSending = false;
+          lastSendEndAt = performance.now();
         }
       }
       rafId = requestAnimationFrame(loop);

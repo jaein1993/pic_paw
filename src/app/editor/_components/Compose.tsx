@@ -7,7 +7,7 @@ import type Konva from 'konva';
 import { useEditorState } from '@/app/editor/_hooks/useEditorState';
 import { useHandTracking } from '@/app/editor/_hooks/useHandTracking';
 import { Button } from '@/shared/components/ui/Button';
-import { startCamera, stopStream } from '@/app/editor/_lib/camera';
+import { startCamera } from '@/app/editor/_lib/camera';
 import { loadImage } from '@/app/editor/_lib/canvas';
 import type { Shot } from '@/shared/types';
 import { CELL_DECORATIONS } from '@/shared/types';
@@ -109,13 +109,13 @@ export function Compose() {
   const [handTrackingEnabled, setHandTrackingEnabled] = useState(true);
   const [petPlacementLocked, setPetPlacementLocked] = useState(false);
   const [captureFrozen, setCaptureFrozen] = useState(false);
-  // Rotation is opt-in — too easy to accidentally spin the pet otherwise.
-  const [rotationEnabled, setRotationEnabled] = useState(false);
+  // Rotation is the OIIA cat-meme spin — the app's signature gesture, so
+  // it's on by default. User can toggle off if it gets in the way.
+  const [rotationEnabled, setRotationEnabled] = useState(true);
 
   const {
     status: handStatus,
     point: handPoint,
-    secondPoint: handSecondPoint,
     pinchDistance,
     palmExtension,
     errorMessage: handError,
