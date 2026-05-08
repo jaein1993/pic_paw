@@ -35,14 +35,20 @@ const SPIN_VELOCITY_FLOOR = 0.02;
 const HAND_HISTORY_LEN = 5;
 
 // Scale gestures — multiplies pet base size:
-//   • Two hands visible: distance between palms → scale
-//   • One hand: thumb-index pinch distance → scale
-const SCALE_MIN = 0.35;
-const SCALE_MAX = 2.2;
+//   • Two hands visible (always active): distance between palms → scale
+//   • One hand: thumb-index pinch distance → scale, but ONLY while the pinch
+//     is "closed" (distance below PINCH_ACTIVE_THRESHOLD). When fingers
+//     spread back open, scale freezes at its last value. This stops scale
+//     from wobbling when the user is just rotating or moving the hand.
+// Multipliers are tuned so each mode can reach the full SCALE_MIN..SCALE_MAX
+// range — pinch tightly closed = tiny, pinch right at threshold = huge.
+const SCALE_MIN = 0.25;
+const SCALE_MAX = 3.0;
 const SCALE_DEFAULT = 1.0;
 const SCALE_SMOOTH = 0.22;
-const TWO_HAND_SCALE_MULT = 3.5;
-const PINCH_SCALE_MULT = 16;
+const TWO_HAND_SCALE_MULT = 4.5;
+const PINCH_SCALE_MULT = 38;
+const PINCH_ACTIVE_THRESHOLD = 0.08;
 
 function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
   const [size, setSize] = useState(360);
@@ -195,6 +201,9 @@ export function Compose() {
   }, []);
 
   // Map current hand gesture → target scale.
+  // Two-hand mode is always active. One-hand pinch only updates scale while
+  // the fingers are explicitly close (distance < PINCH_ACTIVE_THRESHOLD); a
+  // relaxed/open hand leaves scale frozen so it doesn't drift during rotation.
   useEffect(() => {
     if (!handTrackingEnabled || captureFrozen) return;
     let target: number | null = null;
@@ -203,7 +212,10 @@ export function Compose() {
       const dy = handPoint.y - handSecondPoint.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       target = dist * TWO_HAND_SCALE_MULT;
-    } else if (pinchDistance !== null) {
+    } else if (
+      pinchDistance !== null &&
+      pinchDistance < PINCH_ACTIVE_THRESHOLD
+    ) {
       target = pinchDistance * PINCH_SCALE_MULT;
     }
     if (target === null) return;
