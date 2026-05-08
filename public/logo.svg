@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40" fill="none">
+  <circle cx="20" cy="20" r="14" fill="#FF7B7B"/>
+  <text x="20" y="25" text-anchor="middle" font-size="14" fill="white" font-family="sans-serif">🐾</text>
+  <text x="40" y="28" font-size="20" fill="#FF7B7B" font-family="sans-serif" font-weight="bold">{{서비스명}}</text>
+</svg>

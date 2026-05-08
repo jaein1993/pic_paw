@@ -1,26 +1,86 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
+@import url("https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Space+Mono:wght@400;700&family=Gaegu:wght@400;700&family=Black+Han+Sans&display=swap");
 @import "tailwindcss";
 
+/* V3 theme variables — flipped at runtime via [data-theme="A" | "B"] on <html>.
+ * Source of truth: design_handoff_pic-paw/brand.jsx VERSION_THEMES.
+ * A = 차분한 사진관 (default), B = 키치 부스. */
+:root,
+[data-theme="A"] {
+  --theme-bg: #F4EFE6;
+  --theme-surface: #ffffff;
+  --theme-ink: #1A1714;
+  --theme-accent: #E85A4F;
+  --theme-accent2: #D9C5A0;
+  --theme-accent3: #5A6B5D;
+  --theme-cta-bg: #1A1714;
+  --theme-cta-ink: #F4EFE6;
+  --theme-chip-bg: #ffffff;
+  --theme-head-font: "Nanum Myeongjo", serif;
+  --theme-head-weight: 800;
+  --theme-hand-weight: 400;
+  --theme-border-width: 1px;
+  --theme-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.25);
+  --theme-curtain: repeating-linear-gradient(0deg, #E85A4F 0 16px, #c8472e 16px 32px);
+  --theme-photo-bg: linear-gradient(135deg, #5A6B5D55, #2a2520);
+}
+
+[data-theme="B"] {
+  --theme-bg: #FFE26A;
+  --theme-surface: #ffffff;
+  --theme-ink: #1A1714;
+  --theme-accent: #FF6B9D;
+  --theme-accent2: #7AD9C4;
+  --theme-accent3: #FFD93D;
+  --theme-cta-bg: #FF6B9D;
+  --theme-cta-ink: #1A1714;
+  --theme-chip-bg: #FFD93D;
+  --theme-head-font: "Black Han Sans", sans-serif;
+  --theme-head-weight: 400;
+  --theme-hand-weight: 700;
+  --theme-border-width: 3px;
+  --theme-shadow: 5px 5px 0 #1A1714;
+  --theme-curtain: repeating-linear-gradient(0deg, #FF6B9D 0 16px, #ffb7d5 16px 32px);
+  --theme-photo-bg: linear-gradient(135deg, #7AD9C4, #5fbfaa);
+}
+
+@theme {
+  /* Legacy V2 tokens (still used by existing home/editor screens) */
+  --color-brand-primary: #FF7B7B;
+  --color-brand-secondary: #FFD56B;
+  --color-bg-cream: #FFF9F4;
+  --color-text-primary: #2D2D2D;
+  --color-text-secondary: #6B6B6B;
+
+  --font-sans: "Pretendard", "system-ui", "sans-serif";
+
+  /* V3 brand-renewal tokens — values flip with [data-theme] */
+  --color-canvas: var(--theme-bg);
+  --color-surface: var(--theme-surface);
+  --color-ink: var(--theme-ink);
+  --color-accent: var(--theme-accent);
+  --color-accent-2: var(--theme-accent2);
+  --color-accent-3: var(--theme-accent3);
+  --color-cta-bg: var(--theme-cta-bg);
+  --color-cta-ink: var(--theme-cta-ink);
+  --color-chip-bg: var(--theme-chip-bg);
+
+  --font-head: var(--theme-head-font);
+  --font-serif: "Nanum Myeongjo", serif;
+  --font-display: "Black Han Sans", sans-serif;
+  --font-hand: "Gaegu", cursive;
+  --font-mono: "Space Mono", monospace;
+
+  --shadow-theme: var(--theme-shadow);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: var(--color-canvas);
+  --foreground: var(--color-ink);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
