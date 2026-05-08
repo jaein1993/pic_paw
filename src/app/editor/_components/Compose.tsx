@@ -170,6 +170,18 @@ export function Compose() {
     setPetPosition({ x: handPoint.x, y: handPoint.y });
   }, [handPoint, handTrackingEnabled, petPlacementLocked, captureFrozen, setPetPosition]);
 
+  // Position lock = full freeze: stop any in-flight spin and ignore future
+  // gesture-driven rotation/scale until unlocked.
+  useEffect(() => {
+    if (petPlacementLocked) {
+      spinVelocityRef.current = 0;
+      lastTwoHandAngleRef.current = null;
+      pinchAnchorRef.current = null;
+      pinchActiveRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [petPlacementLocked]);
+
   // ─── Rotation + scale engine ────────────────────────────────────────────
   // Rotation is driven exclusively by two-hand twist with momentum + decay.
   // Scale is driven exclusively by one-hand pinch with grab-and-stretch
@@ -223,6 +235,7 @@ export function Compose() {
     if (
       !handTrackingEnabled ||
       captureFrozen ||
+      petPlacementLocked ||
       (handPoint && handSecondPoint) ||
       pinchDistance === null
     ) {
@@ -253,7 +266,7 @@ export function Compose() {
     if (!anchor || anchor.pinchDist <= 0) return;
     const target = anchor.scale * (pinchDistance / anchor.pinchDist);
     targetScaleRef.current = Math.max(SCALE_MIN, Math.min(SCALE_MAX, target));
-  }, [handPoint, handSecondPoint, pinchDistance, handTrackingEnabled, captureFrozen]);
+  }, [handPoint, handSecondPoint, pinchDistance, handTrackingEnabled, captureFrozen, petPlacementLocked]);
 
   // OPEN-PALM stop. When the user shows a flat extended palm to the camera
   // we instantly kill any accumulated spin. Works even when the pet image
@@ -273,6 +286,7 @@ export function Compose() {
     if (
       !handTrackingEnabled ||
       captureFrozen ||
+      petPlacementLocked ||
       !handPoint ||
       !handSecondPoint
     ) {
@@ -296,7 +310,7 @@ export function Compose() {
       -ROT_VELOCITY_MAX,
       Math.min(ROT_VELOCITY_MAX, next),
     );
-  }, [handPoint, handSecondPoint, handTrackingEnabled, captureFrozen]);
+  }, [handPoint, handSecondPoint, handTrackingEnabled, captureFrozen, petPlacementLocked]);
 
   const resetSpin = useCallback(() => {
     rotationRef.current = 0;
@@ -620,7 +634,7 @@ export function Compose() {
             setPetPosition({ x: 0.72, y: 0.6 });
             resetSpin();
           }}
-          disabled={busy || petPlacementLocked}
+          disabled={petPlacementLocked}
           className="w-full"
         >
           위치 초기화
