@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@imgly/background-removal": "^1.7.0",
-    "@mediapipe/hands": "^0.4.1675469240",
     "clsx": "^2.1.1",
     "gif.js": "^0.2.0",
     "konva": "^10.3.0",
