@@ -631,7 +631,7 @@ export function Compose() {
       <div className="w-full max-w-md grid grid-cols-3 gap-2">
         <Button
           type="button"
-          variant={petPlacementLocked ? 'secondary' : 'primary'}
+          variant={petPlacementLocked ? 'primary' : 'secondary'}
           onClick={() => setPetPlacementLocked((v) => !v)}
           className="w-full leading-tight"
           aria-pressed={petPlacementLocked}
@@ -654,7 +654,7 @@ export function Compose() {
         </Button>
         <Button
           type="button"
-          variant="secondary"
+          variant={rotationEnabled ? 'primary' : 'secondary'}
           onClick={() => {
             if (rotationEnabled) {
               setRotationEnabled(false);
