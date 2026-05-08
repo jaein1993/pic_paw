@@ -15,22 +15,25 @@ import { DecorationOverlay } from './DecorationOverlay';
 
 const CAPTURE_SIZE = 720;
 const SHOTS_TARGET = 4;
-const COUNTDOWN_FROM = 5;
+const COUNTDOWN_FROM = 10;
 const FLASH_MS = 200;
 const REST_MS = 1500;
 const PET_REL = 0.55;
+// Palm extension above this = "open palm shown" → instantly halt spin.
+const PALM_OPEN_THRESHOLD = 0.22;
 
 // Per-cell GIF/WebM frame recording during the 5-second countdown.
 const FRAME_SIZE = 200;
 const FRAME_FPS = 8;
 const FRAME_INTERVAL_MS = 1000 / FRAME_FPS;
 
-// Two-hand rotation: hand-twist Δangle becomes angular-velocity impulse
-// with momentum + decay. Tuned for meme-y but controllable — quick twists
-// build a fast spin, hand stop → pet slows over ~1 second.
-const TWO_HAND_ROT_IMPULSE = 10;
-const ROT_DECAY = 0.93;
-const ROT_VELOCITY_MAX = 28; // deg per rAF tick (≈60fps) → ≈4.5 rotations/sec
+// Two-hand rotation: hand-twist Δangle becomes angular-velocity impulse with
+// strong momentum + slow decay (OIIA-cat tornado feel). Open-palm gesture is
+// the explicit "stop" — without it the pet would spin too long after hands
+// stop twisting.
+const TWO_HAND_ROT_IMPULSE = 18;
+const ROT_DECAY = 0.96;
+const ROT_VELOCITY_MAX = 50; // deg per rAF tick (≈60fps) → ≈8 rotations/sec
 const ROT_VELOCITY_FLOOR = 0.05;
 
 // Scale gestures — multiplies pet base size:
@@ -112,11 +115,13 @@ export function Compose() {
     point: handPoint,
     secondPoint: handSecondPoint,
     pinchDistance,
+    palmExtension,
     errorMessage: handError,
   } = useHandTracking({
     enabled: handTrackingEnabled,
     videoRef,
   });
+  const palmOpen = palmExtension !== null && palmExtension > PALM_OPEN_THRESHOLD;
 
   // Start the live camera stream when this step mounts.
   useEffect(() => {
@@ -250,6 +255,16 @@ export function Compose() {
     targetScaleRef.current = Math.max(SCALE_MIN, Math.min(SCALE_MAX, target));
   }, [handPoint, handSecondPoint, pinchDistance, handTrackingEnabled, captureFrozen]);
 
+  // OPEN-PALM stop. When the user shows a flat extended palm to the camera
+  // we instantly kill any accumulated spin. Works even when the pet image
+  // visually covers the user's hand because MediaPipe reads the raw <video>
+  // stream, not the composited canvas.
+  useEffect(() => {
+    if (palmOpen && spinVelocityRef.current !== 0) {
+      spinVelocityRef.current = 0;
+    }
+  }, [palmOpen]);
+
   // TWO-HAND twist → rotation impulse. The angle between palms over time
   // becomes angular velocity (with momentum + decay). Continuous twisting
   // builds up speed; lifting one hand stops new impulses but the pet keeps
@@ -316,7 +331,7 @@ export function Compose() {
   );
 
   // Synchronous small-canvas snapshot used by the GIF/WebM frame recorder.
-  // Keeps composition (mirrored video + pet overlay) but at FRAME_SIZE.
+  // Captures the raw (un-mirrored) camera frame + pet overlay at FRAME_SIZE.
   const captureSmallFrame = useCallback((): HTMLCanvasElement | null => {
     const v = videoRef.current;
     const stage = stageRef.current;
@@ -334,11 +349,7 @@ export function Compose() {
     const side = Math.min(vw, vh);
     const sx = (vw - side) / 2;
     const sy = (vh - side) / 2;
-    ctx.save();
-    ctx.translate(FRAME_SIZE, 0);
-    ctx.scale(-1, 1);
     ctx.drawImage(v, sx, sy, side, side, 0, 0, FRAME_SIZE, FRAME_SIZE);
-    ctx.restore();
 
     const stageCanvas = stage.toCanvas({ pixelRatio: FRAME_SIZE / size });
     ctx.drawImage(stageCanvas, 0, 0, FRAME_SIZE, FRAME_SIZE);
@@ -363,11 +374,7 @@ export function Compose() {
     const side = Math.min(vw, vh);
     const sx = (vw - side) / 2;
     const sy = (vh - side) / 2;
-    ctx.save();
-    ctx.translate(CAPTURE_SIZE, 0);
-    ctx.scale(-1, 1);
     ctx.drawImage(v, sx, sy, side, side, 0, 0, CAPTURE_SIZE, CAPTURE_SIZE);
-    ctx.restore();
 
     const stageDataUrl = stage.toDataURL({ pixelRatio: CAPTURE_SIZE / size });
     const stageImg = await loadImage(stageDataUrl);
@@ -454,6 +461,29 @@ export function Compose() {
     setStep,
   ]);
 
+  // Auto-start the booth as soon as the camera is ready and the pet image
+  // is loaded — there is no longer an explicit "촬영 시작" button.
+  useEffect(() => {
+    if (sessionRef.current || busy) return;
+    if (!petImage) return;
+    let cancelled = false;
+    const tryStart = async () => {
+      let attempts = 0;
+      while (!cancelled && attempts < 60) {
+        if (videoRef.current?.videoWidth && videoRef.current?.videoHeight) {
+          if (!cancelled) startBoothSession();
+          return;
+        }
+        await delay(100);
+        attempts++;
+      }
+    };
+    tryStart();
+    return () => {
+      cancelled = true;
+    };
+  }, [petImage, busy, startBoothSession]);
+
   const handleBack = () => {
     stopStream(streamRef.current);
     streamRef.current = null;
@@ -481,7 +511,7 @@ export function Compose() {
       <div className="text-center">
         <h2 className="text-2xl font-head font-extrabold text-ink">Pic-paw 부스</h2>
         <p className="text-ink/70 mt-1 text-sm">
-          캠 앞에서 손을 움직여 강아지 위치를 잡고, 위치 고정 후 촬영을 시작하세요.
+          입장하면 10초 카운트다운 4번 자동 촬영됩니다. 두 손으로 회전, 핀치로 크기, 손바닥 펴면 정지.
         </p>
       </div>
 
@@ -495,7 +525,6 @@ export function Compose() {
           playsInline
           muted
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ transform: 'scaleX(-1)' }}
         />
 
         <div className="absolute inset-0">
@@ -549,6 +578,12 @@ export function Compose() {
             {shotsTakenLocal}/{SHOTS_TARGET}
           </div>
         )}
+
+        {palmOpen && (
+          <div className="absolute top-3 left-3 px-3 py-1 bg-accent-2 text-ink text-xs font-mono font-bold border-2 border-ink">
+            ✋ 정지
+          </div>
+        )}
       </div>
 
       {cameraError && <p className="text-sm text-red-500">{cameraError}</p>}
@@ -593,9 +628,6 @@ export function Compose() {
       </div>
 
       <div className="flex gap-3 flex-wrap justify-center">
-        <Button onClick={startBoothSession} disabled={busy || !!cameraError}>
-          {busy ? '촬영 중…' : '촬영 시작'}
-        </Button>
         <Button variant="ghost" onClick={handleBack} disabled={busy}>
           이전
         </Button>

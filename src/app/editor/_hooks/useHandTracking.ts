@@ -35,6 +35,10 @@ const PALM_INDICES = [0, 9];
 // Thumb tip and index tip — distance between them = pinch openness.
 const THUMB_TIP = 4;
 const INDEX_TIP = 8;
+// Wrist → middle fingertip distance acts as overall palm extension.
+// Values around 0.05–0.10 = curled fist, 0.20+ = fully spread open palm.
+const WRIST = 0;
+const MIDDLE_TIP = 12;
 
 export interface HandTrackingOptions {
   enabled: boolean;
@@ -48,6 +52,7 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
   point: HandPoint | null;
   secondPoint: HandPoint | null;
   pinchDistance: number | null;
+  palmExtension: number | null;
   errorMessage: string | null;
 } {
   const [status, setStatus] = useState<Status>('idle');
@@ -55,6 +60,7 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
   const [point, setPoint] = useState<HandPoint | null>(null);
   const [secondPoint, setSecondPoint] = useState<HandPoint | null>(null);
   const [pinchDistance, setPinchDistance] = useState<number | null>(null);
+  const [palmExtension, setPalmExtension] = useState<number | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -65,6 +71,7 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
     let smoothed: HandPoint | null = null;
     let smoothedSecond: HandPoint | null = null;
     let smoothedPinch: number | null = null;
+    let smoothedExtension: number | null = null;
 
     setStatus('loading');
     setErrorMessage(null);
@@ -116,8 +123,8 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
       }
       const rawX = sx / PALM_INDICES.length;
       const rawY = sy / PALM_INDICES.length;
-      // Mirror x to match the CSS-flipped selfie video the user sees.
-      return { x: clamp01(1 - rawX), y: clamp01(rawY) };
+      // Camera is shown un-mirrored, so we keep raw landmark coords.
+      return { x: clamp01(rawX), y: clamp01(rawY) };
     }
 
     function loop() {
@@ -150,6 +157,19 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
                 ? rawPinch
                 : smoothedPinch + (rawPinch - smoothedPinch) * smoothing;
             setPinchDistance(smoothedPinch);
+
+            // Palm extension — wrist to middle fingertip. Used to detect
+            // open-palm "stop" gesture.
+            const w = hands[0][WRIST];
+            const m = hands[0][MIDDLE_TIP];
+            const ex = m.x - w.x;
+            const ey = m.y - w.y;
+            const rawExt = Math.sqrt(ex * ex + ey * ey);
+            smoothedExtension =
+              smoothedExtension === null
+                ? rawExt
+                : smoothedExtension + (rawExt - smoothedExtension) * smoothing;
+            setPalmExtension(smoothedExtension);
           }
 
           if (hands.length > 1 && hands[1].length > 0) {
@@ -180,14 +200,16 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
       smoothed = null;
       smoothedSecond = null;
       smoothedPinch = null;
+      smoothedExtension = null;
       setPoint(null);
       setSecondPoint(null);
       setPinchDistance(null);
+      setPalmExtension(null);
       setStatus('idle');
     };
   }, [enabled, videoRef, smoothing]);
 
-  return { status, point, secondPoint, pinchDistance, errorMessage };
+  return { status, point, secondPoint, pinchDistance, palmExtension, errorMessage };
 }
 
 function clamp01(n: number): number {
