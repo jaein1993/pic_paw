@@ -83,6 +83,14 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  /* Disable browser's faux-bold synthesis. Display fonts like Black Han
+   * Sans only ship a single 400-weight face — when Tailwind's
+   * `font-extrabold` (800) is applied to those, the browser was inventing
+   * thicker strokes on top of an already-heavy face, producing a smeared
+   * "글자 뭉개짐" look on the kitsch (B) theme. With synthesis off, the
+   * actual installed weight is used as-is. Multi-weight fonts (Pretendard,
+   * Nanum Myeongjo) are unaffected — their real weights are still picked. */
+  font-synthesis-weight: none;
 }
 
 /* On wide PC screens shrink rem-based sizes so the editor's camera + buttons
