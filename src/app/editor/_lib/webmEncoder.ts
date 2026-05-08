@@ -104,22 +104,25 @@ export async function encodeWebm(config: WebmEncodeConfig): Promise<Blob> {
   ctx.fillStyle = inkColor;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `${brandFontWeight} 18px ${brandFont}`;
-  ctx.fillText(brandText, STRIP_W / 2, HEADER_H / 2 + 4);
+  ctx.font = `${brandFontWeight} 26px ${brandFont}`;
+  ctx.fillText(brandText, STRIP_W / 2, HEADER_H / 2 + 6);
 
   ctx.strokeStyle = innerBorderColor;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 2;
   for (let i = 0; i < 4; i++) {
     const cellY = HEADER_H + i * (CELL_H + GAP);
     ctx.strokeRect(CELL_X - 1, cellY - 1, CELL_W + 2, CELL_H + 2);
   }
 
   ctx.fillStyle = metaColor;
-  ctx.font = `8px ${metaFont}`;
-  ctx.fillText(metaText, STRIP_W / 2, STRIP_H - FOOTER_H / 2 - 4);
+  ctx.font = `11px ${metaFont}`;
+  ctx.fillText(metaText, STRIP_W / 2, STRIP_H - FOOTER_H / 2 - 6);
 
   const stream = canvas.captureStream(FPS);
-  const recorder = new MediaRecorder(stream, { mimeType: mime });
+  const recorder = new MediaRecorder(stream, {
+    mimeType: mime,
+    videoBitsPerSecond: 5_000_000,
+  });
   const chunks: Blob[] = [];
   recorder.ondataavailable = (e) => {
     if (e.data.size > 0) chunks.push(e.data);

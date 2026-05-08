@@ -1,15 +1,16 @@
 import GIF from 'gif.js';
 import type { CutFrames } from '@/shared/types';
 
-// Animated strip layout — proportional to the static PNG strip in Step4
-// (360×1424 → scaled 0.667× for GIF size budget, with cells = FRAME_SIZE).
-export const GIF_STRIP_W = 240;
-export const GIF_HEADER_H = 42;
-export const GIF_CELL_W = 200;
-export const GIF_CELL_H = 200;
+// Animated strip layout — matches the static PNG strip in Step4
+// (360×1424, cell 320×320). Source frames are 720×720 so the 320 cell
+// still downsamples cleanly.
+export const GIF_STRIP_W = 360;
+export const GIF_HEADER_H = 64;
+export const GIF_CELL_W = 320;
+export const GIF_CELL_H = 320;
 export const GIF_CELL_X = (GIF_STRIP_W - GIF_CELL_W) / 2;
-export const GIF_GAP = 5;
-export const GIF_FOOTER_H = 38;
+export const GIF_GAP = 8;
+export const GIF_FOOTER_H = 56;
 export const GIF_STRIP_H =
   GIF_HEADER_H + 4 * GIF_CELL_H + 3 * GIF_GAP + GIF_FOOTER_H;
 
@@ -85,31 +86,32 @@ export function encodeGif(config: GifEncodeConfig): Promise<Blob> {
   baseCtx.fillStyle = inkColor;
   baseCtx.textAlign = 'center';
   baseCtx.textBaseline = 'middle';
-  baseCtx.font = `${brandFontWeight} 18px ${brandFont}`;
-  baseCtx.fillText(brandText, GIF_STRIP_W / 2, GIF_HEADER_H / 2 + 4);
+  baseCtx.font = `${brandFontWeight} 26px ${brandFont}`;
+  baseCtx.fillText(brandText, GIF_STRIP_W / 2, GIF_HEADER_H / 2 + 6);
 
   baseCtx.strokeStyle = innerBorderColor;
-  baseCtx.lineWidth = 1;
+  baseCtx.lineWidth = 2;
   for (let i = 0; i < 4; i++) {
     const cellY = GIF_HEADER_H + i * (GIF_CELL_H + GIF_GAP);
     baseCtx.strokeRect(GIF_CELL_X - 1, cellY - 1, GIF_CELL_W + 2, GIF_CELL_H + 2);
   }
 
   baseCtx.fillStyle = metaColor;
-  baseCtx.font = `8px ${metaFont}`;
+  baseCtx.font = `11px ${metaFont}`;
   baseCtx.fillText(
     metaText,
     GIF_STRIP_W / 2,
-    GIF_STRIP_H - GIF_FOOTER_H / 2 - 4,
+    GIF_STRIP_H - GIF_FOOTER_H / 2 - 6,
   );
 
   const gif = new GIF({
     workers: 2,
-    quality: 10,
+    quality: 5,
     workerScript: '/gif.worker.js',
     width: GIF_STRIP_W,
     height: GIF_STRIP_H,
     repeat: 0,
+    dither: 'FloydSteinberg',
   });
 
   for (let frameIdx = 0; frameIdx < maxLen; frameIdx++) {

@@ -9,6 +9,7 @@ declare module 'gif.js' {
     background?: string;
     transparent?: number | null;
     debug?: boolean;
+    dither?: 'FloydSteinberg' | 'FalseFloydSteinberg' | 'Stucki' | 'Atkinson' | boolean;
   }
   interface FrameOptions {
     delay?: number;
