@@ -100,11 +100,24 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
         if (cancelled) return;
         const filesetResolver = await vision.FilesetResolver.forVisionTasks(WASM_BASE_URL);
         if (cancelled) return;
-        const lm = (await vision.HandLandmarker.createFromOptions(filesetResolver, {
-          baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate: 'GPU' },
-          runningMode: 'VIDEO',
-          numHands: 2,
-        })) as HandLandmarkerInstance;
+        // GPU delegate fails on many mobile browsers (iOS Safari in particular —
+        // WebGL context creation for MediaPipe inference is flaky). Try GPU
+        // first for desktop perf, fall back to CPU so mobile users still get
+        // hand tracking instead of a silent failure.
+        const createWithDelegate = async (delegate: 'GPU' | 'CPU') =>
+          (await vision.HandLandmarker.createFromOptions(filesetResolver, {
+            baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate },
+            runningMode: 'VIDEO',
+            numHands: 2,
+          })) as HandLandmarkerInstance;
+        let lm: HandLandmarkerInstance;
+        try {
+          lm = await createWithDelegate('GPU');
+        } catch (gpuErr) {
+          if (cancelled) return;
+          console.warn('[handTracking] GPU delegate failed, falling back to CPU', gpuErr);
+          lm = await createWithDelegate('CPU');
+        }
         if (cancelled) {
           lm?.close?.();
           return;
@@ -114,6 +127,7 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
         loop();
       } catch (e) {
         if (cancelled) return;
+        console.error('[handTracking] model load failed', e);
         setStatus('error');
         setErrorMessage(e instanceof Error ? e.message : '손 인식 모델을 불러오지 못했어요.');
       }
@@ -198,8 +212,10 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
             smoothedSecond = null;
             setSecondPoint(null);
           }
-        } catch {
-          // Frame failed — skip and try again next tick.
+        } catch (err) {
+          // Frame failed — skip and try again next tick. Log so mobile
+          // failures don't disappear silently.
+          console.warn('[handTracking] detect frame failed', err);
         }
       }
     }

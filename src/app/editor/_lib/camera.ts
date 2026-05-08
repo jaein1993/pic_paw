@@ -9,8 +9,12 @@ export async function startCamera(
   facingMode: 'user' | 'environment' = 'user'
 ): Promise<MediaStream> {
   if (!sharedStream || !sharedStream.active) {
+    // 1280×720 covers both desktop and mobile well. 1920×1080 was overkill —
+    // MediaPipe HandLandmarker downscales internally anyway, and 1080p frames
+    // on mobile CPUs make inference take 200–500ms per frame, which makes
+    // hand tracking effectively non-functional on phones.
     sharedStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false,
     });
   }
