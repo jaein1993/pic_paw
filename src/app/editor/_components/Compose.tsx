@@ -345,7 +345,7 @@ export function Compose() {
   );
 
   // Synchronous small-canvas snapshot used by the GIF/WebM frame recorder.
-  // Captures the raw (un-mirrored) camera frame + pet overlay at FRAME_SIZE.
+  // Mirrors the video so the saved frame matches the user's selfie view.
   const captureSmallFrame = useCallback((): HTMLCanvasElement | null => {
     const v = videoRef.current;
     const stage = stageRef.current;
@@ -363,7 +363,11 @@ export function Compose() {
     const side = Math.min(vw, vh);
     const sx = (vw - side) / 2;
     const sy = (vh - side) / 2;
+    ctx.save();
+    ctx.translate(FRAME_SIZE, 0);
+    ctx.scale(-1, 1);
     ctx.drawImage(v, sx, sy, side, side, 0, 0, FRAME_SIZE, FRAME_SIZE);
+    ctx.restore();
 
     const stageCanvas = stage.toCanvas({ pixelRatio: FRAME_SIZE / size });
     ctx.drawImage(stageCanvas, 0, 0, FRAME_SIZE, FRAME_SIZE);
@@ -388,7 +392,11 @@ export function Compose() {
     const side = Math.min(vw, vh);
     const sx = (vw - side) / 2;
     const sy = (vh - side) / 2;
+    ctx.save();
+    ctx.translate(CAPTURE_SIZE, 0);
+    ctx.scale(-1, 1);
     ctx.drawImage(v, sx, sy, side, side, 0, 0, CAPTURE_SIZE, CAPTURE_SIZE);
+    ctx.restore();
 
     const stageDataUrl = stage.toDataURL({ pixelRatio: CAPTURE_SIZE / size });
     const stageImg = await loadImage(stageDataUrl);
@@ -539,6 +547,7 @@ export function Compose() {
           playsInline
           muted
           className="absolute inset-0 w-full h-full object-cover"
+          style={{ transform: 'scaleX(-1)' }}
         />
 
         <div className="absolute inset-0">

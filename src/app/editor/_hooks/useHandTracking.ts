@@ -123,8 +123,8 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
       }
       const rawX = sx / PALM_INDICES.length;
       const rawY = sy / PALM_INDICES.length;
-      // Camera is shown un-mirrored, so we keep raw landmark coords.
-      return { x: clamp01(rawX), y: clamp01(rawY) };
+      // Mirror x to match the CSS-flipped selfie video the user sees.
+      return { x: clamp01(1 - rawX), y: clamp01(rawY) };
     }
 
     function loop() {
