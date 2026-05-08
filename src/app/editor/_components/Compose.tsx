@@ -20,7 +20,9 @@ const FLASH_MS = 200;
 const REST_MS = 1500;
 const PET_REL = 0.55;
 // Palm extension above this = "open palm shown" → instantly halt spin.
-const PALM_OPEN_THRESHOLD = 0.22;
+// Set high enough that a relaxed hand pose doesn't accidentally trigger it —
+// only a deliberately fully-spread palm should stop the spin.
+const PALM_OPEN_THRESHOLD = 0.34;
 
 // Per-cell GIF/WebM frame recording during the 5-second countdown.
 const FRAME_SIZE = 200;
