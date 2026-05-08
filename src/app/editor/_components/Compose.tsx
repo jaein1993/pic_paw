@@ -24,16 +24,14 @@ const PET_REL = 0.55;
 // only a deliberately fully-spread palm should stop the spin.
 const PALM_OPEN_THRESHOLD = 0.34;
 
-// Per-cell GIF/WebM frame recording during the countdown. We hold every
-// captured frame in memory (as a HTMLCanvasElement) until the user reaches
-// Step 4 and encodes them. 4 cuts × 10 s × FPS × FRAME_SIZE² × 4 bytes
-// adds up fast on phones — at the previous (8 fps, 200 px) settings that
-// was ~51 MB of raw bitmap, which combined with MediaPipe + camera +
-// Konva was enough to OOM-kill the tab on mid-range Galaxies (page would
-// "reload due to error" right after the 4th cut). Halving fps and
-// shrinking the frame brings it down to ~14 MB, which fits comfortably.
-const FRAME_SIZE = 160;
-const FRAME_FPS = 4;
+// Per-cell GIF/WebM frame recording during the countdown. The killer cost
+// here was not the bitmap memory (~few MB) but `stage.toCanvas()` running
+// every recorder tick — Konva re-rasterises the whole stage on the JS
+// thread, which on mid-range Galaxies starves both MediaPipe and the
+// 1-second countdown. Going 4→2 fps halves the pressure, and 160→128 px
+// lets the rasteriser finish faster.
+const FRAME_SIZE = 128;
+const FRAME_FPS = 2;
 const FRAME_INTERVAL_MS = 1000 / FRAME_FPS;
 
 // One-hand circular palm motion → angular-velocity impulse with momentum +
