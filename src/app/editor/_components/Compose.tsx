@@ -334,11 +334,17 @@ export function Compose() {
   );
 
   // Synchronous small-canvas snapshot used by the GIF/WebM frame recorder.
-  // Mirrors the video so the saved frame matches the user's selfie view.
+  // Mirrors the video and composites the pet directly via 2D canvas ops —
+  // we deliberately skip Konva's `stage.toCanvas()` here because that
+  // re-rasterises the entire stage (background, decoration overlay, all
+  // layers) every recorder tick, and on mobile that single call dominates
+  // the frame budget enough to starve hand inference and the countdown
+  // timer. Direct drawing means cell decorations don't appear in the GIF
+  // (only in the still photos and the live preview), but the pet — the
+  // app's whole point — stays animated through every cut.
   const captureSmallFrame = useCallback((): HTMLCanvasElement | null => {
     const v = videoRef.current;
-    const stage = stageRef.current;
-    if (!v || !stage) return null;
+    if (!v) return null;
     if (!v.videoWidth || !v.videoHeight) return null;
 
     const canvas = document.createElement('canvas');
@@ -358,11 +364,25 @@ export function Compose() {
     ctx.drawImage(v, sx, sy, side, side, 0, 0, FRAME_SIZE, FRAME_SIZE);
     ctx.restore();
 
-    const stageCanvas = stage.toCanvas({ pixelRatio: FRAME_SIZE / size });
-    ctx.drawImage(stageCanvas, 0, 0, FRAME_SIZE, FRAME_SIZE);
+    if (petImage) {
+      const pos = petPositionRef.current;
+      const rot = rotationRef.current;
+      const scl = scaleRef.current;
+      const baseW = FRAME_SIZE * PET_REL;
+      const baseH = baseW * (petImage.height / petImage.width);
+      const pw = baseW * scl;
+      const ph = baseH * scl;
+      const px = pos.x * FRAME_SIZE;
+      const py = pos.y * FRAME_SIZE;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate((rot * Math.PI) / 180);
+      ctx.drawImage(petImage, -pw / 2, -ph / 2, pw, ph);
+      ctx.restore();
+    }
 
     return canvas;
-  }, [size]);
+  }, [petImage]);
 
   const captureFrame = useCallback(async (): Promise<string | null> => {
     const v = videoRef.current;
