@@ -26,12 +26,12 @@ const FRAME_FPS = 8;
 const FRAME_INTERVAL_MS = 1000 / FRAME_FPS;
 
 // Two-hand rotation: each frame's hand-twist Δangle becomes an angular-
-// velocity impulse with momentum + slow decay (OIIA-cat tornado feel). Brief
-// quick twists pile up to the cap fast and the pet keeps spinning for a few
-// seconds afterwards.
-const TWO_HAND_ROT_IMPULSE = 12;
-const ROT_DECAY = 0.97;
-const ROT_VELOCITY_MAX = 55; // deg per rAF tick (≈60fps) → ≈9 rotations/sec
+// velocity impulse with strong momentum + very slow decay (OIIA-cat tornado
+// feel). Even tiny wrist twists pile up to the cap fast and the pet keeps
+// spinning for several seconds afterwards.
+const TWO_HAND_ROT_IMPULSE = 25;
+const ROT_DECAY = 0.98;
+const ROT_VELOCITY_MAX = 70; // deg per rAF tick (≈60fps) → ≈11 rotations/sec
 const ROT_VELOCITY_FLOOR = 0.05;
 
 // Scale gestures — multiplies pet base size:
