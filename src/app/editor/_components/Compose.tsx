@@ -15,7 +15,7 @@ import { DecorationOverlay } from './DecorationOverlay';
 
 const CAPTURE_SIZE = 720;
 const SHOTS_TARGET = 4;
-const COUNTDOWN_FROM = 10;
+const COUNTDOWN_FROM = 7;
 const FLASH_MS = 200;
 const REST_MS = 1500;
 const PET_REL = 0.55;

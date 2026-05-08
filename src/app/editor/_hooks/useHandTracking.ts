@@ -210,7 +210,12 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
           // selfieMode so MediaPipe mirrors input internally — coords come
           // back already aligned with the user's flipped selfie display.
           selfieMode: true,
-          maxNumHands: 2,
+          // Single hand only. Current gesture set (palm position drives pet
+          // location, pinch drives scale, circular palm motion drives spin)
+          // is all single-handed, so the second-hand inference slot was pure
+          // overhead. Halving this halves the per-frame inference cost on
+          // mobile CPU.
+          maxNumHands: 1,
           // 0 = lite (smaller, faster), 1 = full (more accurate). Lite is
           // a better fit for mobile CPUs that only have a few hundred MB
           // of headroom for the WASM heap.
