@@ -168,8 +168,17 @@ export function Compose() {
 
   // Drive pet position from the tracked hand point until the user locks it.
   // Mouse-drag still works as a fallback when no hand is detected.
+  // Throttle to ~12 Hz: hand detection fires up to ~25 Hz, but each call
+  // here triggers a React re-render → a Konva stage redraw, which on
+  // mid-range mobile dominates the frame budget. 80 ms (12 Hz) still feels
+  // smooth visually (well above the cinematic ~10 fps floor) and roughly
+  // halves the re-render pressure on the main thread.
+  const lastPetPosUpdateRef = useRef(0);
   useEffect(() => {
     if (!handTrackingEnabled || !handPoint || petPlacementLocked || captureFrozen) return;
+    const now = performance.now();
+    if (now - lastPetPosUpdateRef.current < 80) return;
+    lastPetPosUpdateRef.current = now;
     setPetPosition({ x: handPoint.x, y: handPoint.y });
   }, [handPoint, handTrackingEnabled, petPlacementLocked, captureFrozen, setPetPosition]);
 
