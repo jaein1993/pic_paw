@@ -39,6 +39,10 @@ const INDEX_TIP = 8;
 // Values around 0.05–0.10 = curled fist, 0.20+ = fully spread open palm.
 const WRIST = 0;
 const MIDDLE_TIP = 12;
+// Cap detection at ~30 Hz so we don't over-saturate mobile CPUs/GPUs.
+// MediaPipe inference can take 30–50ms per frame on phones; without this
+// the rAF loop tries to run at 60Hz, queuing frames and feeling laggy.
+const DETECT_INTERVAL_MS = 1000 / 30;
 
 export interface HandTrackingOptions {
   enabled: boolean;
@@ -72,6 +76,7 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
     let smoothedSecond: HandPoint | null = null;
     let smoothedPinch: number | null = null;
     let smoothedExtension: number | null = null;
+    let lastDetectTime = 0;
 
     setStatus('loading');
     setErrorMessage(null);
@@ -129,10 +134,18 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
 
     function loop() {
       if (cancelled) return;
+      // Always schedule the next frame first so a slow detection doesn't
+      // stall the loop (and so the throttle below can early-return safely).
+      rafId = requestAnimationFrame(loop);
+
+      const now = performance.now();
+      if (now - lastDetectTime < DETECT_INTERVAL_MS) return;
+      lastDetectTime = now;
+
       const video = videoRef.current;
       if (video && video.readyState >= 2 && landmarker) {
         try {
-          const result = landmarker.detectForVideo(video, performance.now());
+          const result = landmarker.detectForVideo(video, now);
           const hands = result.landmarks ?? [];
 
           if (hands.length > 0 && hands[0].length > 0) {
@@ -189,7 +202,6 @@ export function useHandTracking({ enabled, videoRef, smoothing = 0.35 }: HandTra
           // Frame failed — skip and try again next tick.
         }
       }
-      rafId = requestAnimationFrame(loop);
     }
 
     return () => {
