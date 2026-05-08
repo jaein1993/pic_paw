@@ -9,12 +9,13 @@ export async function startCamera(
   facingMode: 'user' | 'environment' = 'user'
 ): Promise<MediaStream> {
   if (!sharedStream || !sharedStream.active) {
-    // 1280×720 covers both desktop and mobile well. 1920×1080 was overkill —
-    // MediaPipe HandLandmarker downscales internally anyway, and 1080p frames
-    // on mobile CPUs make inference take 200–500ms per frame, which makes
-    // hand tracking effectively non-functional on phones.
+    // 1920×1080 ideal — modern phones deliver this without trouble and the
+    // photo cell quality benefits from the extra detail. `ideal` is a soft
+    // constraint so older devices fall back automatically (e.g. to 720p)
+    // without breaking the stream. HandLandmarker downscales internally and
+    // CPU delegate handles 1080p fine on current-gen mobiles.
     sharedStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
       audio: false,
     });
   }

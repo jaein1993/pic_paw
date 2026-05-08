@@ -1,14 +1,16 @@
 import type { CutFrames } from '@/shared/types';
-import {
-  GIF_STRIP_W as STRIP_W,
-  GIF_STRIP_H as STRIP_H,
-  GIF_HEADER_H as HEADER_H,
-  GIF_CELL_W as CELL_W,
-  GIF_CELL_H as CELL_H,
-  GIF_CELL_X as CELL_X,
-  GIF_GAP as GAP,
-  GIF_FOOTER_H as FOOTER_H,
-} from './gifEncoder';
+
+// WebM uses larger dimensions than GIF — VP9 compresses well so file size
+// stays small even at 2× the GIF strip. Source frames are 1080×1080, so a
+// 640 cell is a clean 0.59× downsample with no aliasing.
+const STRIP_W = 768;
+const HEADER_H = 138;
+const CELL_W = 640;
+const CELL_H = 640;
+const CELL_X = (STRIP_W - CELL_W) / 2;
+const GAP = 17;
+const FOOTER_H = 119;
+const STRIP_H = HEADER_H + 4 * CELL_H + 3 * GAP + FOOTER_H;
 
 const FPS = 8;
 const FRAME_INTERVAL_MS = 1000 / FPS;
@@ -104,24 +106,24 @@ export async function encodeWebm(config: WebmEncodeConfig): Promise<Blob> {
   ctx.fillStyle = inkColor;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `${brandFontWeight} 26px ${brandFont}`;
-  ctx.fillText(brandText, STRIP_W / 2, HEADER_H / 2 + 6);
+  ctx.font = `${brandFontWeight} 55px ${brandFont}`;
+  ctx.fillText(brandText, STRIP_W / 2, HEADER_H / 2 + 12);
 
   ctx.strokeStyle = innerBorderColor;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 4;
   for (let i = 0; i < 4; i++) {
     const cellY = HEADER_H + i * (CELL_H + GAP);
-    ctx.strokeRect(CELL_X - 1, cellY - 1, CELL_W + 2, CELL_H + 2);
+    ctx.strokeRect(CELL_X - 2, cellY - 2, CELL_W + 4, CELL_H + 4);
   }
 
   ctx.fillStyle = metaColor;
-  ctx.font = `11px ${metaFont}`;
-  ctx.fillText(metaText, STRIP_W / 2, STRIP_H - FOOTER_H / 2 - 6);
+  ctx.font = `23px ${metaFont}`;
+  ctx.fillText(metaText, STRIP_W / 2, STRIP_H - FOOTER_H / 2 - 12);
 
   const stream = canvas.captureStream(FPS);
   const recorder = new MediaRecorder(stream, {
     mimeType: mime,
-    videoBitsPerSecond: 5_000_000,
+    videoBitsPerSecond: 8_000_000,
   });
   const chunks: Blob[] = [];
   recorder.ondataavailable = (e) => {

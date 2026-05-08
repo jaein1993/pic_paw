@@ -1,16 +1,16 @@
 import GIF from 'gif.js';
 import type { CutFrames } from '@/shared/types';
 
-// Animated strip layout — matches the static PNG strip in Step4
-// (360×1424, cell 320×320). Source frames are 720×720 so the 320 cell
-// still downsamples cleanly.
-export const GIF_STRIP_W = 360;
-export const GIF_HEADER_H = 64;
-export const GIF_CELL_W = 320;
-export const GIF_CELL_H = 320;
+// Animated strip layout — 1.25× the static PNG strip proportions. Source
+// frames are 1080×1080 so the 400 cell downsamples cleanly. Going larger
+// is bounded by GIF file-size budget (256-color palette is heavy).
+export const GIF_STRIP_W = 450;
+export const GIF_HEADER_H = 80;
+export const GIF_CELL_W = 400;
+export const GIF_CELL_H = 400;
 export const GIF_CELL_X = (GIF_STRIP_W - GIF_CELL_W) / 2;
-export const GIF_GAP = 8;
-export const GIF_FOOTER_H = 56;
+export const GIF_GAP = 10;
+export const GIF_FOOTER_H = 70;
 export const GIF_STRIP_H =
   GIF_HEADER_H + 4 * GIF_CELL_H + 3 * GIF_GAP + GIF_FOOTER_H;
 
@@ -86,8 +86,8 @@ export function encodeGif(config: GifEncodeConfig): Promise<Blob> {
   baseCtx.fillStyle = inkColor;
   baseCtx.textAlign = 'center';
   baseCtx.textBaseline = 'middle';
-  baseCtx.font = `${brandFontWeight} 26px ${brandFont}`;
-  baseCtx.fillText(brandText, GIF_STRIP_W / 2, GIF_HEADER_H / 2 + 6);
+  baseCtx.font = `${brandFontWeight} 32px ${brandFont}`;
+  baseCtx.fillText(brandText, GIF_STRIP_W / 2, GIF_HEADER_H / 2 + 8);
 
   baseCtx.strokeStyle = innerBorderColor;
   baseCtx.lineWidth = 2;
@@ -97,11 +97,11 @@ export function encodeGif(config: GifEncodeConfig): Promise<Blob> {
   }
 
   baseCtx.fillStyle = metaColor;
-  baseCtx.font = `11px ${metaFont}`;
+  baseCtx.font = `14px ${metaFont}`;
   baseCtx.fillText(
     metaText,
     GIF_STRIP_W / 2,
-    GIF_STRIP_H - GIF_FOOTER_H / 2 - 6,
+    GIF_STRIP_H - GIF_FOOTER_H / 2 - 8,
   );
 
   const gif = new GIF({

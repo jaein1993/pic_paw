@@ -144,11 +144,11 @@ export function FrameDownload() {
     return `NO.${n}`;
   }, []);
 
-  // Export the strip at 2× the original (un-scaled) STRIP_W resolution so a
-  // downscaled-on-mobile preview still produces a sharp PNG. The Stage now
-  // measures `innerWidth` (was `displayWidth`), so the multiplier base
-  // changed accordingly.
-  const exportPixelRatio = (2 * STRIP_W) / Math.max(innerWidth, 1);
+  // Export the strip at 3× the original (un-scaled) STRIP_W resolution so a
+  // downscaled-on-mobile preview still produces a sharp PNG. Source frames
+  // are 1080×1080 and cells are 320 logical → 960 px at 3×, so source
+  // detail is preserved nearly 1:1 with minimal downscale aliasing.
+  const exportPixelRatio = (3 * STRIP_W) / Math.max(innerWidth, 1);
 
   const handleDownload = useCallback(async () => {
     const stage = stageRef.current;

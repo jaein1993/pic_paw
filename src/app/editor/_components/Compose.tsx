@@ -13,7 +13,7 @@ import type { Shot } from '@/shared/types';
 import { CELL_DECORATIONS } from '@/shared/types';
 import { DecorationOverlay } from './DecorationOverlay';
 
-const CAPTURE_SIZE = 720;
+const CAPTURE_SIZE = 1080;
 const SHOTS_TARGET = 4;
 const COUNTDOWN_FROM = 7;
 const FLASH_MS = 200;
