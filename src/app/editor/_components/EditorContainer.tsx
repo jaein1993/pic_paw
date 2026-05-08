@@ -8,6 +8,7 @@ import { BackgroundChoice } from './BackgroundChoice';
 import { Compose } from './Compose';
 import { FrameDownload } from './FrameDownload';
 import { Footer } from '@/shared/components/layout/Footer';
+import { releaseSharedCamera } from '@/app/editor/_lib/camera';
 import { cn } from '@/shared/lib/utils';
 
 const STEP_LABELS = [
@@ -22,8 +23,13 @@ export default function EditorContainer() {
 
   // Each fresh visit to /editor starts at Step 1 with a clean store —
   // otherwise navigating Home → 시작하기 lands on the previous shots.
+  // On full unmount (leaving /editor for /, /about, etc.) release the
+  // shared camera so the OS indicator turns off.
   useEffect(() => {
     reset();
+    return () => {
+      releaseSharedCamera();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

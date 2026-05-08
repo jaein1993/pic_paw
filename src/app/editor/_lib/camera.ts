@@ -1,18 +1,37 @@
+// Module-level shared stream so multiple steps (Step 2 preview + Step 3
+// booth) can attach the SAME camera to their <video> elements without each
+// triggering a separate getUserMedia (= second permission prompt on iOS /
+// in-app browsers).
+let sharedStream: MediaStream | null = null;
+
 export async function startCamera(
   videoEl: HTMLVideoElement,
   facingMode: 'user' | 'environment' = 'user'
 ): Promise<MediaStream> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
-    audio: false,
-  });
-  videoEl.srcObject = stream;
+  if (!sharedStream || !sharedStream.active) {
+    sharedStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    });
+  }
+  videoEl.srcObject = sharedStream;
   await videoEl.play();
-  return stream;
+  return sharedStream;
 }
 
+// Stop a stream we own. Use releaseSharedCamera() when leaving the editor
+// flow entirely; per-step cleanup should NOT stop the shared stream or the
+// next step has to ask for permission again.
 export function stopStream(stream: MediaStream | null): void {
   stream?.getTracks().forEach((t) => t.stop());
+  if (stream === sharedStream) sharedStream = null;
+}
+
+export function releaseSharedCamera(): void {
+  if (sharedStream) {
+    sharedStream.getTracks().forEach((t) => t.stop());
+    sharedStream = null;
+  }
 }
 
 export function captureFrame(videoEl: HTMLVideoElement): Promise<Blob | null> {

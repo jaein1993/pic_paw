@@ -128,18 +128,17 @@ export function Compose() {
     (async () => {
       try {
         const stream = await startCamera(v, 'user');
-        if (cancelled) {
-          stopStream(stream);
-          return;
-        }
+        if (cancelled) return;
         streamRef.current = stream;
       } catch {
         if (!cancelled) setCameraError('카메라 접근 권한이 필요합니다.');
       }
     })();
+    // Don't stop the stream on unmount — it's the shared editor camera and
+    // Step 2 may still want to display it. Stream is released when the user
+    // leaves the editor entirely (EditorContainer cleanup).
     return () => {
       cancelled = true;
-      stopStream(streamRef.current);
       streamRef.current = null;
     };
   }, []);
@@ -455,7 +454,8 @@ export function Compose() {
         }
       }
 
-      stopStream(streamRef.current);
+      // Keep the shared stream alive for "다시 촬영" — only the editor's
+      // outermost cleanup releases it.
       streamRef.current = null;
       setStep(4);
     } finally {
@@ -510,7 +510,7 @@ export function Compose() {
   }, [petImage, busy, startBoothSession, handStatus]);
 
   const handleBack = () => {
-    stopStream(streamRef.current);
+    // Keep stream alive — Step 2 displays it.
     streamRef.current = null;
     setStep(2);
   };
@@ -628,15 +628,16 @@ export function Compose() {
         </button>
       </div>
 
-      <div className="w-full max-w-md grid grid-cols-2 gap-2">
+      <div className="w-full max-w-md grid grid-cols-3 gap-2">
         <Button
           type="button"
           variant={petPlacementLocked ? 'secondary' : 'primary'}
           onClick={() => setPetPlacementLocked((v) => !v)}
-          className="w-full"
+          className="w-full leading-tight"
           aria-pressed={petPlacementLocked}
         >
-          {petPlacementLocked ? '다시 조정' : '위치 고정'}
+          <span className="block">{petPlacementLocked ? '다시' : '위치'}</span>
+          <span className="block">{petPlacementLocked ? '조정' : '고정'}</span>
         </Button>
         <Button
           type="button"
@@ -646,16 +647,14 @@ export function Compose() {
             resetSpin();
           }}
           disabled={petPlacementLocked}
-          className="w-full"
+          className="w-full leading-tight"
         >
-          위치 초기화
+          <span className="block">위치</span>
+          <span className="block">초기화</span>
         </Button>
-      </div>
-
-      <div className="w-full max-w-md">
         <Button
           type="button"
-          variant={rotationEnabled ? 'secondary' : 'ghost'}
+          variant="secondary"
           onClick={() => {
             if (rotationEnabled) {
               setRotationEnabled(false);
@@ -668,10 +667,11 @@ export function Compose() {
             }
           }}
           disabled={petPlacementLocked}
-          className="w-full"
+          className="w-full leading-tight"
           aria-pressed={rotationEnabled}
         >
-          {rotationEnabled ? '🌀 회전기능 제거' : '🌀 회전기능 추가'}
+          <span className="block">🌀 회전</span>
+          <span className="block">{rotationEnabled ? 'OFF' : 'ON'}</span>
         </Button>
       </div>
 

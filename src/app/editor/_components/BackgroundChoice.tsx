@@ -1,36 +1,73 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useEditorState } from '@/app/editor/_hooks/useEditorState';
+import { startCamera } from '@/app/editor/_lib/camera';
 import { Button } from '@/shared/components/ui/Button';
 
 export function BackgroundChoice() {
   const { setStep } = useEditorState();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [granted, setGranted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Camera is intentionally NOT started here — Step 3 (Compose) handles the
-  // full camera lifecycle. Starting it twice (here AND there) caused some
-  // browsers (esp. iOS Safari, KakaoTalk) to ask for camera permission a
-  // second time when the user advances to the booth.
+  // Use the SHARED stream from camera.ts. First call here triggers the one
+  // and only permission prompt; Step 3 reuses the same stream when the user
+  // advances. Don't stop the stream on unmount — it stays alive for the
+  // booth (released only when leaving /editor entirely).
+  useEffect(() => {
+    let cancelled = false;
+    const v = videoRef.current;
+    if (!v) return;
+    (async () => {
+      try {
+        await startCamera(v, 'user');
+        if (!cancelled) setGranted(true);
+      } catch {
+        if (!cancelled) setError('카메라 권한이 필요합니다.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="space-y-6 max-w-md mx-auto">
       <header className="text-center">
         <h2 className="text-xl font-bold text-text-primary">부스 입장 준비</h2>
         <p className="text-text-secondary text-sm mt-1">
-          다음에서 카메라 권한을 한 번 요청해요. <b>"허용"</b>을 눌러주세요.
+          카메라 화면이 잘 잡히는지 확인하고 부스에 입장하세요.
         </p>
       </header>
 
-      <div className="bg-chip-bg/40 border border-ink/15 px-4 py-4 text-sm text-ink space-y-1.5">
-        <p className="font-bold mb-1">📸 부스에서</p>
-        <p>· 손바닥으로 강아지 위치 이동</p>
-        <p>· 엄지·검지 거리로 크기 조정</p>
-        <p>· 10초 카운트다운으로 4컷 자동 촬영</p>
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700">
+          {error} — 브라우저 설정에서 카메라 권한을 허용해주세요.
+        </div>
+      )}
+
+      <div className="aspect-square w-full max-w-xs mx-auto rounded-2xl overflow-hidden bg-black relative border-2 border-ink shadow-theme">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+          style={{ transform: 'scaleX(-1)' }}
+        />
+        {!granted && !error && (
+          <div className="absolute inset-0 flex items-center justify-center text-white text-sm">
+            카메라 권한 요청 중...
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2 justify-end">
         <Button variant="ghost" onClick={() => setStep(1)}>
           ← 이전
         </Button>
-        <Button variant="primary" onClick={() => setStep(3)}>
+        <Button variant="primary" disabled={!granted} onClick={() => setStep(3)}>
           부스 입장 →
         </Button>
       </div>
