@@ -9,12 +9,11 @@ export async function removeImageBackground(
   opts: RemoveBackgroundOptions = {}
 ): Promise<Blob> {
   const config: Config = {
-    // fp16 — half-precision model (~45MB). Trades larger first-load and
-    // higher RAM for noticeably crisper edge detail (especially fine fur),
-    // which matters for pet cutouts where the subject IS fur. Inference
-    // is single-shot per upload so the larger model doesn't impact booth
-    // (camera/hand-tracking) performance.
-    model: 'isnet_fp16',
+    // Quantized int8 model — ~10MB instead of ~45MB (fp16). Tried fp16 on
+    // 2026-05-09 but the edge-detail improvement on pet fur was not
+    // visually noticeable at our cell size while inference was clearly
+    // slower, so reverted. quint8 stays the right trade-off here.
+    model: 'isnet_quint8',
     output: {
       format: 'image/png',
       quality: 1.0,
