@@ -38,24 +38,17 @@ const ROT_VELOCITY_MAX = 50; // deg per rAF tick (≈60fps) → ≈8 rotations/s
 const ROT_VELOCITY_FLOOR = 0.05;
 const HAND_HISTORY_LEN = 5;
 
-// Scale gestures — multiplies pet base size:
-//   • Two hands visible (always active): distance between palms → scale
-//   • One hand: thumb-index pinch distance → scale, but ONLY while the pinch
-//     is "closed" (distance below PINCH_ACTIVE_THRESHOLD). When fingers
-//     spread back open, scale freezes at its last value. This stops scale
-//     from wobbling when the user is just rotating or moving the hand.
-// Multipliers are tuned so each mode can reach the full SCALE_MIN..SCALE_MAX
-// range — pinch tightly closed = tiny, pinch right at threshold = huge.
+// Scale gestures — pet size mapped directly to thumb-index distance.
+// User just shows their hand: tighter pinch = smaller pet, wider spread =
+// bigger pet. No "engage" step required — natural and discoverable.
 const SCALE_MIN = 0.25;
 const SCALE_MAX = 3.0;
 const SCALE_DEFAULT = 1.0;
 const SCALE_SMOOTH = 0.22;
-const TWO_HAND_SCALE_MULT = 4.5;
-// Hysteresis: pinch must close BELOW _ENTER to engage, then stays active
-// until it spreads ABOVE _EXIT. The wide active window lets the user start
-// from a tight pinch and stretch open to grow the pet without dropping out.
-const PINCH_ENTER_THRESHOLD = 0.07;
-const PINCH_EXIT_THRESHOLD = 0.25;
+// Pinch distance range that maps to the full scale range. Below MIN clamps
+// to SCALE_MIN, above MAX clamps to SCALE_MAX.
+const PINCH_MIN_DIST = 0.04;
+const PINCH_MAX_DIST = 0.22;
 
 function useContainerSize(ref: React.RefObject<HTMLDivElement | null>) {
   const [size, setSize] = useState(360);
@@ -180,8 +173,6 @@ export function Compose() {
     if (petPlacementLocked) {
       spinVelocityRef.current = 0;
       handHistoryRef.current = [];
-      pinchAnchorRef.current = null;
-      pinchActiveRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [petPlacementLocked]);
@@ -199,8 +190,6 @@ export function Compose() {
   const handHistoryRef = useRef<Array<{ x: number; y: number }>>([]);
   const scaleRef = useRef(SCALE_DEFAULT);
   const targetScaleRef = useRef(SCALE_DEFAULT);
-  const pinchAnchorRef = useRef<{ scale: number; pinchDist: number } | null>(null);
-  const pinchActiveRef = useRef(false);
 
   // rAF loop: bleed spin velocity (rotation) + lerp scale toward target.
   useEffect(() => {
@@ -229,12 +218,9 @@ export function Compose() {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
-  // ONE-HAND pinch → scale (grab-and-stretch with hysteresis). User must
-  // tightly pinch (distance < ENTER) to engage; once engaged, the anchor
-  // (current scale, current pinch distance) is recorded. Subsequent samples
-  // map scale = anchorScale × (currentPinch / anchorPinch), so the user can
-  // *spread* fingers wide to grow the pet without the gesture dropping out.
-  // Only when the spread exceeds EXIT does the gesture release.
+  // ONE-HAND pinch → scale (direct linear mapping, always active). The
+  // user just shows their hand and the thumb-index distance maps directly
+  // to pet size. Tight pinch = SCALE_MIN, wide spread = SCALE_MAX.
   useEffect(() => {
     if (
       !handTrackingEnabled ||
@@ -242,33 +228,14 @@ export function Compose() {
       petPlacementLocked ||
       pinchDistance === null
     ) {
-      pinchAnchorRef.current = null;
-      pinchActiveRef.current = false;
       return;
     }
-
-    if (!pinchActiveRef.current) {
-      // Waiting for an explicit pinch close to engage.
-      if (pinchDistance < PINCH_ENTER_THRESHOLD) {
-        pinchActiveRef.current = true;
-        pinchAnchorRef.current = {
-          scale: scaleRef.current,
-          pinchDist: pinchDistance,
-        };
-      }
-      return;
-    }
-
-    // Active — release only when fingers spread past EXIT.
-    if (pinchDistance > PINCH_EXIT_THRESHOLD) {
-      pinchActiveRef.current = false;
-      pinchAnchorRef.current = null;
-      return;
-    }
-    const anchor = pinchAnchorRef.current;
-    if (!anchor || anchor.pinchDist <= 0) return;
-    const target = anchor.scale * (pinchDistance / anchor.pinchDist);
-    targetScaleRef.current = Math.max(SCALE_MIN, Math.min(SCALE_MAX, target));
+    const clamped = Math.max(
+      PINCH_MIN_DIST,
+      Math.min(PINCH_MAX_DIST, pinchDistance),
+    );
+    const t = (clamped - PINCH_MIN_DIST) / (PINCH_MAX_DIST - PINCH_MIN_DIST);
+    targetScaleRef.current = SCALE_MIN + t * (SCALE_MAX - SCALE_MIN);
   }, [pinchDistance, handTrackingEnabled, captureFrozen, petPlacementLocked]);
 
   // OPEN-PALM stop. When the user shows a flat extended palm to the camera
@@ -335,8 +302,6 @@ export function Compose() {
     rotationRef.current = 0;
     spinVelocityRef.current = 0;
     handHistoryRef.current = [];
-    pinchAnchorRef.current = null;
-    pinchActiveRef.current = false;
     setPetRotation(0);
     targetScaleRef.current = SCALE_DEFAULT;
     scaleRef.current = SCALE_DEFAULT;
@@ -510,28 +475,39 @@ export function Compose() {
     setStep,
   ]);
 
-  // Auto-start the booth as soon as the camera is ready and the pet image
-  // is loaded — there is no longer an explicit "촬영 시작" button.
+  // Auto-start the booth once the camera AND the hand-tracking model are
+  // ready (or after a max wait, so a slow MediaPipe load never blocks the
+  // user forever). Without this, the first cut's countdown could begin
+  // before MediaPipe finished loading and gestures wouldn't respond yet.
   useEffect(() => {
     if (sessionRef.current || busy) return;
     if (!petImage) return;
     let cancelled = false;
     const tryStart = async () => {
+      const MAX_HAND_WAIT_ATTEMPTS = 80; // ~8s
+      const MAX_TOTAL_ATTEMPTS = 120; // ~12s — start anyway after this
       let attempts = 0;
-      while (!cancelled && attempts < 60) {
-        if (videoRef.current?.videoWidth && videoRef.current?.videoHeight) {
+      while (!cancelled && attempts < MAX_TOTAL_ATTEMPTS) {
+        const cameraReady =
+          !!(videoRef.current?.videoWidth && videoRef.current?.videoHeight);
+        // Resolve as ready as soon as the model loaded (or errored — the
+        // booth still works without hand tracking via mouse drag).
+        const handResolved = handStatus === 'ready' || handStatus === 'error';
+        const waitedLongEnough = attempts >= MAX_HAND_WAIT_ATTEMPTS;
+        if (cameraReady && (handResolved || waitedLongEnough)) {
           if (!cancelled) startBoothSession();
           return;
         }
         await delay(100);
         attempts++;
       }
+      if (!cancelled) startBoothSession();
     };
     tryStart();
     return () => {
       cancelled = true;
     };
-  }, [petImage, busy, startBoothSession]);
+  }, [petImage, busy, startBoothSession, handStatus]);
 
   const handleBack = () => {
     stopStream(streamRef.current);
@@ -543,12 +519,10 @@ export function Compose() {
     idle: '손 인식 꺼짐',
     loading: '손 인식 모델 로딩 중…',
     ready: petPlacementLocked
-      ? '위치 고정됨'
+      ? '🔒 위치 고정됨'
       : handPoint
-        ? busy
-          ? '손 인식 ✓ 4컷 모두 손으로 위치를 바꿀 수 있어요'
-          : '손 인식 ✓ 손을 움직이면 강아지가 따라가요'
-        : '손을 카메라에 보여주세요',
+        ? '✓ 손 인식됨'
+        : '👋 카메라에 손바닥을 보여주세요',
     error: handError ?? '손 인식 실패 — 마우스로 끌어 이동해주세요',
   };
 
@@ -560,8 +534,32 @@ export function Compose() {
       <div className="text-center">
         <h2 className="text-2xl font-head font-extrabold text-ink">Pic-paw 부스</h2>
         <p className="text-ink/70 mt-1 text-sm">
-          입장하면 10초 카운트다운 4번 자동 촬영됩니다. 손으로 위치 이동, 핀치로 크기 조정.
+          10초 카운트다운으로 4컷 자동 촬영
         </p>
+      </div>
+
+      <div className="w-full max-w-md bg-chip-bg/40 border border-ink/15 px-4 py-3 text-sm text-ink space-y-1.5">
+        <p className="font-bold text-ink/80 mb-1">🖐️ 손짓 사용법</p>
+        <p>
+          <span className="font-mono text-xs bg-surface px-1.5 py-0.5 border border-ink/20 mr-2">이동</span>
+          손바닥을 화면에서 움직이면 강아지가 따라와요
+        </p>
+        <p>
+          <span className="font-mono text-xs bg-surface px-1.5 py-0.5 border border-ink/20 mr-2">크기</span>
+          엄지·검지를 모았다가 벌리면 커지고, 좁히면 작아져요
+        </p>
+        {rotationEnabled && (
+          <>
+            <p>
+              <span className="font-mono text-xs bg-surface px-1.5 py-0.5 border border-ink/20 mr-2">회전</span>
+              손바닥으로 작은 원을 그리면 빙글빙글 돌아요
+            </p>
+            <p>
+              <span className="font-mono text-xs bg-surface px-1.5 py-0.5 border border-ink/20 mr-2">정지</span>
+              손바닥을 활짝 펴면 회전이 멈춰요
+            </p>
+          </>
+        )}
       </div>
 
       <div
