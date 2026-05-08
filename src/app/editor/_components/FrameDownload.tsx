@@ -182,7 +182,7 @@ export function FrameDownload() {
         metaText,
         onProgress: (p) => setEncodeProgress(p),
       });
-      downloadBlob(blob, `pic-paw_${Date.now()}.gif`);
+      await downloadBlob(blob, `pic-paw_${Date.now()}.gif`, 'image/gif');
     } catch (err) {
       setEncodeError(err instanceof Error ? err.message : 'GIF 생성 실패');
     } finally {
@@ -212,7 +212,7 @@ export function FrameDownload() {
         metaText,
         onProgress: (p) => setEncodeProgress(p),
       });
-      downloadBlob(blob, `pic-paw_${Date.now()}.webm`);
+      await downloadBlob(blob, `pic-paw_${Date.now()}.webm`, 'video/webm');
     } catch (err) {
       setEncodeError(err instanceof Error ? err.message : 'WebM 생성 실패');
     } finally {
