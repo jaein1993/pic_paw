@@ -24,13 +24,11 @@ const PET_REL = 0.55;
 // only a deliberately fully-spread palm should stop the spin.
 const PALM_OPEN_THRESHOLD = 0.34;
 
-// Per-cell GIF/WebM frame recording during the countdown. The killer cost
-// here was not the bitmap memory (~few MB) but `stage.toCanvas()` running
-// every recorder tick — Konva re-rasterises the whole stage on the JS
-// thread, which on mid-range Galaxies starves both MediaPipe and the
-// 1-second countdown. Going 4→2 fps halves the pressure, and 160→128 px
-// lets the rasteriser finish faster.
-const FRAME_SIZE = 128;
+// Per-cell GIF/WebM frame recording. 400 matches the GIF cell 1:1 (no
+// upscale). 128 was a stopgap when `stage.toCanvas()` per tick was
+// starving cut 2+; that path is gone now, so the remaining ceiling is
+// `ctx.drawImage(video, …)` blit cost and ~11 MB JS heap across 4 cuts.
+const FRAME_SIZE = 400;
 const FRAME_FPS = 2;
 const FRAME_INTERVAL_MS = 1000 / FRAME_FPS;
 
