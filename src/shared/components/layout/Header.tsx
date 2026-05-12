@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { ThemeToggle } from './ThemeToggle';
 
 export function Header() {
   return (
@@ -25,7 +24,6 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <ThemeToggle />
           <Link
             href="/editor"
             className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-display tracking-tight whitespace-nowrap bg-cta-bg text-cta-ink border border-ink shadow-theme hover:-translate-y-px active:translate-y-px transition-transform"
