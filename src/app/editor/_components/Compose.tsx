@@ -15,7 +15,6 @@ import { DecorationOverlay } from './DecorationOverlay';
 
 const CAPTURE_SIZE = 1080;
 const SHOTS_TARGET = 4;
-const COUNTDOWN_FROM = 7;
 const FLASH_MS = 200;
 const REST_MS = 1500;
 const PET_REL = 0.55;
@@ -86,6 +85,7 @@ export function Compose() {
     setSpeechText,
     setCutFrames,
     clearCutFrames,
+    countdownSeconds: countdownFrom,
   } = useEditorState();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -457,7 +457,7 @@ export function Compose() {
           if (f) cutFrames.push(f);
         }, FRAME_INTERVAL_MS);
 
-        for (let c = COUNTDOWN_FROM; c >= 1; c--) {
+        for (let c = countdownFrom; c >= 1; c--) {
           setCountdown(c);
           await delay(1000);
         }
@@ -508,6 +508,7 @@ export function Compose() {
     captureSmallFrame,
     clearCutFrames,
     clearShots,
+    countdownFrom,
     pushShot,
     setCutFrames,
     setStep,
@@ -627,7 +628,7 @@ export function Compose() {
       <div className="text-center">
         <h2 className="text-2xl font-head font-extrabold text-ink">Pic-paw 부스</h2>
         <p className="text-ink/70 mt-1 text-sm">
-          10초 카운트다운으로 4컷 자동 촬영
+          {countdownFrom}초 카운트다운으로 4컷 자동 촬영
         </p>
       </div>
 

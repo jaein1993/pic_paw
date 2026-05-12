@@ -11,6 +11,12 @@ export type CutLayout = '1x4' | '2x2';
 // contrast (dark bg → cream text, light bg → dark text).
 export type FrameColor = 'black' | 'white';
 
+// Per-cut countdown seconds, picked by the user in Step 2 before entering
+// the booth. Allow-listed values so a stray query string can't push the
+// booth into an absurd duration.
+export type CountdownSeconds = 5 | 7 | 10 | 15;
+export const COUNTDOWN_OPTIONS: readonly CountdownSeconds[] = [5, 7, 10, 15];
+
 // Pet position relative to the camera viewport. (x, y) is the pet node's center,
 // normalized to 0..1 of the square viewport edge.
 export interface PetPosition {
@@ -63,6 +69,7 @@ export interface EditorState {
   speechText: string;
   cutLayout: CutLayout;
   frameColor: FrameColor;
+  countdownSeconds: CountdownSeconds;
   setStep: (step: EditorStep) => void;
   setPetImageUrl: (url: string | null) => void;
   setPetOriginalFile: (file: File | null) => void;
@@ -75,5 +82,6 @@ export interface EditorState {
   setSpeechText: (s: string) => void;
   setCutLayout: (layout: CutLayout) => void;
   setFrameColor: (color: FrameColor) => void;
+  setCountdownSeconds: (n: CountdownSeconds) => void;
   reset: () => void;
 }

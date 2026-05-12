@@ -7,6 +7,7 @@ import type {
   CutFrames,
   CutLayout,
   FrameColor,
+  CountdownSeconds,
 } from '@/shared/types';
 import { BORDERS } from '@/app/editor/_constants/borders';
 
@@ -27,6 +28,7 @@ export const useEditorState = create<EditorState>((set) => ({
   speechText: '',
   cutLayout: '1x4',
   frameColor: 'black',
+  countdownSeconds: 7,
 
   setStep: (step: EditorStep) => set({ currentStep: step }),
   setPetImageUrl: (url: string | null) => set({ petImageUrl: url }),
@@ -46,6 +48,7 @@ export const useEditorState = create<EditorState>((set) => ({
   setSpeechText: (s: string) => set({ speechText: s }),
   setCutLayout: (layout: CutLayout) => set({ cutLayout: layout }),
   setFrameColor: (color: FrameColor) => set({ frameColor: color }),
+  setCountdownSeconds: (n: CountdownSeconds) => set({ countdownSeconds: n }),
   reset: () =>
     set({
       currentStep: 1,
@@ -58,5 +61,6 @@ export const useEditorState = create<EditorState>((set) => ({
       speechText: '',
       cutLayout: '1x4',
       frameColor: 'black',
+      countdownSeconds: 7,
     }),
 }));

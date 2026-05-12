@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useEditorState } from '@/app/editor/_hooks/useEditorState';
 import { startCamera } from '@/app/editor/_lib/camera';
 import { Button } from '@/shared/components/ui/Button';
+import { COUNTDOWN_OPTIONS } from '@/shared/types';
 
 export function BackgroundChoice() {
-  const { setStep } = useEditorState();
+  const { setStep, countdownSeconds, setCountdownSeconds } = useEditorState();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [granted, setGranted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +62,33 @@ export function BackgroundChoice() {
             카메라 권한 요청 중...
           </div>
         )}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <span className="font-mono text-xs tracking-wider text-text-secondary">
+          컷당 촬영 시간
+        </span>
+        <div role="radiogroup" aria-label="컷당 촬영 시간" className="flex gap-1.5">
+          {COUNTDOWN_OPTIONS.map((sec) => {
+            const active = countdownSeconds === sec;
+            return (
+              <button
+                key={sec}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setCountdownSeconds(sec)}
+                className={
+                  active
+                    ? 'px-3 py-1.5 text-xs font-mono font-bold tracking-wider bg-ink text-surface border-2 border-ink'
+                    : 'px-3 py-1.5 text-xs font-mono font-bold tracking-wider bg-surface text-ink border-2 border-ink hover:bg-ink/5'
+                }
+              >
+                {sec}초
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="flex gap-2 justify-end">
