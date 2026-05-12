@@ -9,7 +9,8 @@ const HEADER_H = 138;
 const GAP = 17;
 const FOOTER_H = 40;
 const CELL_1x4 = 640;
-const CELL_2x2 = (STRIP_W - GAP) / 2;
+const PAD_X_2x2 = GAP;
+const CELL_2x2 = (STRIP_W - 2 * PAD_X_2x2 - GAP) / 2;
 
 const FPS = 8;
 const FRAME_INTERVAL_MS = 1000 / FPS;
@@ -46,7 +47,7 @@ function geometryFor(layout: CutLayout): Geometry {
         const col = idx % 2;
         const row = Math.floor(idx / 2);
         return {
-          x: col * (cell + GAP),
+          x: PAD_X_2x2 + col * (cell + GAP),
           y: HEADER_H + row * (cell + GAP),
         };
       },

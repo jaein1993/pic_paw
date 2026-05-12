@@ -21,7 +21,8 @@ const HEADER_H = 64;
 const GAP = 8;
 const FOOTER_H = 16;
 const CELL_1x4 = 320;
-const CELL_2x2 = (STRIP_W - GAP) / 2;
+const PAD_X_2x2 = GAP;
+const CELL_2x2 = (STRIP_W - 2 * PAD_X_2x2 - GAP) / 2;
 const PET_REL = 0.55;
 
 interface FrameStyle {
@@ -81,7 +82,7 @@ function geometryFor(layout: CutLayout): Geometry {
         const col = idx % 2;
         const row = Math.floor(idx / 2);
         return {
-          x: col * (cell + GAP),
+          x: PAD_X_2x2 + col * (cell + GAP),
           y: HEADER_H + row * (cell + GAP),
         };
       },
