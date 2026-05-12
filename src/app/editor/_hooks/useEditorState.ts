@@ -5,6 +5,8 @@ import type {
   PetPosition,
   Shot,
   CutFrames,
+  CutLayout,
+  FrameColor,
 } from '@/shared/types';
 import { BORDERS } from '@/app/editor/_constants/borders';
 
@@ -23,6 +25,8 @@ export const useEditorState = create<EditorState>((set) => ({
   cutFrames: [[], [], [], []],
   selectedBorderId: INITIAL_BORDER_ID,
   speechText: '',
+  cutLayout: '1x4',
+  frameColor: 'black',
 
   setStep: (step: EditorStep) => set({ currentStep: step }),
   setPetImageUrl: (url: string | null) => set({ petImageUrl: url }),
@@ -40,6 +44,8 @@ export const useEditorState = create<EditorState>((set) => ({
   clearCutFrames: () => set({ cutFrames: [[], [], [], []] }),
   setSelectedBorderId: (id: string | null) => set({ selectedBorderId: id }),
   setSpeechText: (s: string) => set({ speechText: s }),
+  setCutLayout: (layout: CutLayout) => set({ cutLayout: layout }),
+  setFrameColor: (color: FrameColor) => set({ frameColor: color }),
   reset: () =>
     set({
       currentStep: 1,
@@ -50,5 +56,7 @@ export const useEditorState = create<EditorState>((set) => ({
       cutFrames: [[], [], [], []],
       selectedBorderId: INITIAL_BORDER_ID,
       speechText: '',
+      cutLayout: '1x4',
+      frameColor: 'black',
     }),
 }));

@@ -5,8 +5,7 @@ import { Stage, Layer, Group, Image as KonvaImage, Rect, Text } from 'react-konv
 import useImage from 'use-image';
 import type Konva from 'konva';
 import { useEditorState } from '@/app/editor/_hooks/useEditorState';
-import { useTheme } from '@/shared/hooks/useTheme';
-import type { ThemeVersion } from '@/shared/types';
+import type { CutLayout, FrameColor } from '@/shared/types';
 import {
   downloadBlob,
   downloadDataURL,
@@ -19,70 +18,106 @@ import { SPEECH_BUBBLE_ASPECT } from './decorations';
 
 const STRIP_W = 360;
 const HEADER_H = 64;
-const CELL_W = 320;
-const CELL_H = 320;
-const CELL_X = (STRIP_W - CELL_W) / 2;
 const GAP = 8;
-const FOOTER_H = 56;
-const STRIP_H = HEADER_H + 4 * CELL_H + 3 * GAP + FOOTER_H;
+const FOOTER_H = 16;
+const CELL_1x4 = 320;
+const CELL_2x2 = (STRIP_W - GAP) / 2;
 const PET_REL = 0.55;
 
 interface FrameStyle {
   bg: string;
   ink: string;
-  meta: string;
+  brandText: string;
   brandFont: string;
   brandFontStyle: string;
-  brandText: string;
-  metaFont: string;
+  innerBorderColor: string;
   outerBorder: number;
   outerBorderColor: string;
-  innerBorderColor: string;
   containerClass: string;
 }
 
-function frameStyleFor(version: ThemeVersion): FrameStyle {
-  if (version === 'A') {
+function frameStyleFor(color: FrameColor): FrameStyle {
+  if (color === 'white') {
     return {
-      bg: '#1A1714',
-      ink: '#F4EFE6',
-      meta: 'rgba(244,239,230,0.7)',
+      bg: '#F4EFE6',
+      ink: '#1A1714',
+      brandText: 'Pic-paw',
       brandFont: 'Nanum Myeongjo, serif',
       brandFontStyle: 'bold',
-      brandText: 'Pic-paw',
-      metaFont: 'Space Mono, monospace',
-      outerBorder: 0,
+      innerBorderColor: '#1A1714',
+      outerBorder: 2,
       outerBorderColor: '#1A1714',
-      innerBorderColor: '#F4EFE6',
-      containerClass: 'shadow-[0_12px_30px_-10px_rgba(0,0,0,0.35)]',
+      containerClass: 'shadow-[0_12px_30px_-10px_rgba(0,0,0,0.25)]',
     };
   }
   return {
-    bg: '#FFB7D5',
-    ink: '#1A1714',
-    meta: 'rgba(26,23,20,0.7)',
-    brandFont: 'Black Han Sans, sans-serif',
-    brandFontStyle: 'normal',
-    brandText: '★ Pic-paw ★',
-    metaFont: 'Space Mono, monospace',
-    outerBorder: 3,
+    bg: '#1A1714',
+    ink: '#F4EFE6',
+    brandText: 'Pic-paw',
+    brandFont: 'Nanum Myeongjo, serif',
+    brandFontStyle: 'bold',
+    innerBorderColor: '#F4EFE6',
+    outerBorder: 0,
     outerBorderColor: '#1A1714',
-    innerBorderColor: '#1A1714',
-    containerClass: 'shadow-[5px_5px_0_#1A1714]',
+    containerClass: 'shadow-[0_12px_30px_-10px_rgba(0,0,0,0.35)]',
+  };
+}
+
+interface Geometry {
+  stripH: number;
+  cellW: number;
+  cellH: number;
+  cellOf: (idx: number) => { x: number; y: number };
+}
+
+function geometryFor(layout: CutLayout): Geometry {
+  if (layout === '2x2') {
+    const cell = CELL_2x2;
+    return {
+      stripH: HEADER_H + 2 * cell + GAP + FOOTER_H,
+      cellW: cell,
+      cellH: cell,
+      cellOf: (idx) => {
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        return {
+          x: col * (cell + GAP),
+          y: HEADER_H + row * (cell + GAP),
+        };
+      },
+    };
+  }
+  const cell = CELL_1x4;
+  const cellX = (STRIP_W - cell) / 2;
+  return {
+    stripH: HEADER_H + 4 * cell + 3 * GAP + FOOTER_H,
+    cellW: cell,
+    cellH: cell,
+    cellOf: (idx) => ({ x: cellX, y: HEADER_H + idx * (cell + GAP) }),
   };
 }
 
 export function FrameDownload() {
-  const { petImageUrl, shots, cutFrames, setStep, speechText } = useEditorState();
-  const { version } = useTheme();
-  const frame = useMemo(() => frameStyleFor(version), [version]);
+  const {
+    petImageUrl,
+    shots,
+    cutFrames,
+    setStep,
+    speechText,
+    cutLayout,
+    setCutLayout,
+    frameColor,
+    setFrameColor,
+  } = useEditorState();
+  const frame = useMemo(() => frameStyleFor(frameColor), [frameColor]);
+  const geom = useMemo(() => geometryFor(cutLayout), [cutLayout]);
 
   const stageRef = useRef<Konva.Stage>(null);
   const stripContainerRef = useRef<HTMLDivElement>(null);
   const [displayWidth, setDisplayWidth] = useState(STRIP_W);
 
-  // Track BOTH the strip container width AND the viewport height so the
-  // strip fits without scrolling on portrait phones. We pick the smaller of:
+  // Track both the strip container width AND viewport height so the strip
+  // fits without scrolling on portrait phones. Pick the smaller of:
   //   • container width
   //   • viewport-height-derived width (so strip never exceeds ~70vh tall)
   //   • original STRIP_W (no upscaling)
@@ -91,7 +126,8 @@ export function FrameDownload() {
     if (!el) return;
     const update = () => {
       const widthCap = el.offsetWidth;
-      const viewportHeightCap = (window.innerHeight * 0.7) * (STRIP_W / STRIP_H);
+      const viewportHeightCap =
+        (window.innerHeight * 0.7) * (STRIP_W / geom.stripH);
       setDisplayWidth(Math.min(STRIP_W, widthCap, viewportHeightCap));
     };
     update();
@@ -102,16 +138,14 @@ export function FrameDownload() {
       ro.disconnect();
       window.removeEventListener('resize', update);
     };
-  }, []);
+  }, [geom.stripH]);
 
-  // The container is `box-sizing: border-box`, so its border (kitsch theme
-  // adds 3 px) eats into the content area. Without compensating, Stage
-  // would overdraw to the right/bottom and get clipped by overflow-hidden,
-  // visibly cutting off the rightmost strip of pink. We size the Stage to
-  // the *inner* content area and grow the outer container to fit.
+  // The container is `box-sizing: border-box`, so its border eats into the
+  // content area. We size the Stage to the *inner* content area and grow
+  // the outer container to fit.
   const borderPx = frame.outerBorder ?? 0;
   const innerWidth = Math.max(0, displayWidth - borderPx * 2);
-  const innerHeight = innerWidth * (STRIP_H / STRIP_W);
+  const innerHeight = innerWidth * (geom.stripH / STRIP_W);
   const displayHeight = innerHeight + borderPx * 2;
   const displayScale = innerWidth / STRIP_W;
 
@@ -131,23 +165,9 @@ export function FrameDownload() {
   const [encodeProgress, setEncodeProgress] = useState(0);
   const [encodeError, setEncodeError] = useState<string | null>(null);
 
-  const dateString = useMemo(() => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${y}.${m}.${dd}`;
-  }, []);
-
-  const serial = useMemo(() => {
-    const n = (Date.now() % 9999).toString().padStart(4, '0');
-    return `NO.${n}`;
-  }, []);
-
-  // Export the strip at 3× the original (un-scaled) STRIP_W resolution so a
-  // downscaled-on-mobile preview still produces a sharp PNG. Source frames
-  // are 1080×1080 and cells are 320 logical → 960 px at 3×, so source
-  // detail is preserved nearly 1:1 with minimal downscale aliasing.
+  // Export the strip at 3× the design-canvas width so a downscaled-on-mobile
+  // preview still produces a sharp PNG. Cell pixel resolution after export
+  // is (3 × CELL_W) — 960 for 1×4, ~528 for 2×2.
   const exportPixelRatio = (3 * STRIP_W) / Math.max(innerWidth, 1);
 
   const handleDownload = useCallback(async () => {
@@ -166,8 +186,6 @@ export function FrameDownload() {
     setTimeout(() => setShareResult('idle'), 2000);
   }, [exportPixelRatio]);
 
-  const metaText = `${dateString}   ·   PET 4 CUT   ·   ${serial}`;
-
   const haveAnimatedFrames =
     cutFrames.length === 4 && cutFrames.every((arr) => arr.length > 0);
 
@@ -179,17 +197,15 @@ export function FrameDownload() {
     try {
       const blob = await encodeGif({
         cutFrames,
+        layout: cutLayout,
         bgColor: frame.bg,
         inkColor: frame.ink,
-        metaColor: frame.meta,
         brandText: frame.brandText,
         brandFont: frame.brandFont,
         brandFontWeight: frame.brandFontStyle,
-        metaFont: frame.metaFont,
         outerBorder: frame.outerBorder,
         outerBorderColor: frame.outerBorderColor,
         innerBorderColor: frame.innerBorderColor,
-        metaText,
         onProgress: (p) => setEncodeProgress(p),
       });
       await downloadBlob(blob, `pic-paw_${Date.now()}.gif`, 'image/gif');
@@ -199,7 +215,7 @@ export function FrameDownload() {
       setEncoding(null);
       setEncodeProgress(0);
     }
-  }, [cutFrames, encoding, frame, metaText]);
+  }, [cutFrames, cutLayout, encoding, frame]);
 
   const handleDownloadWebm = useCallback(async () => {
     if (encoding) return;
@@ -209,17 +225,15 @@ export function FrameDownload() {
     try {
       const blob = await encodeWebm({
         cutFrames,
+        layout: cutLayout,
         bgColor: frame.bg,
         inkColor: frame.ink,
-        metaColor: frame.meta,
         brandText: frame.brandText,
         brandFont: frame.brandFont,
         brandFontWeight: frame.brandFontStyle,
-        metaFont: frame.metaFont,
         outerBorder: frame.outerBorder,
         outerBorderColor: frame.outerBorderColor,
         innerBorderColor: frame.innerBorderColor,
-        metaText,
         onProgress: (p) => setEncodeProgress(p),
       });
       await downloadBlob(blob, `pic-paw_${Date.now()}.webm`, 'video/webm');
@@ -229,37 +243,36 @@ export function FrameDownload() {
       setEncoding(null);
       setEncodeProgress(0);
     }
-  }, [cutFrames, encoding, frame, metaText]);
+  }, [cutFrames, cutLayout, encoding, frame]);
 
   const haveAllShots = shots.length >= 4;
-  const petW = CELL_W * PET_REL;
+  const petW = geom.cellW * PET_REL;
   const petH = petImage ? petW * (petImage.height / petImage.width) : petW;
 
+  // Speech bubble lives on cut index 2 in both layouts. In 1×4 that's the
+  // 3rd row; in 2×2 it's the bottom-left cell. Same anchor logic works
+  // because cellOf already returns the right cell origin.
   const speechLayout = useMemo(() => {
     const shot = shots[2];
     if (!shot) return null;
-    const petCx = shot.petPosition.x * CELL_W;
-    const petCy = shot.petPosition.y * CELL_H;
-    const w = Math.min(petW * 0.95, CELL_W * 0.55);
+    const cell = geom.cellOf(2);
+    const petCx = shot.petPosition.x * geom.cellW;
+    const petCy = shot.petPosition.y * geom.cellH;
+    const w = Math.min(petW * 0.95, geom.cellW * 0.55);
     const h = w / SPEECH_BUBBLE_ASPECT;
     let x = petCx + petW * 0.10;
     let y = petCy - petH * 0.30 - h;
-    x = Math.min(Math.max(x, 4), CELL_W - w - 4);
-    y = Math.min(Math.max(y, 4), CELL_H - h - 4);
-    return {
-      x: CELL_X + x,
-      y: HEADER_H + 2 * (CELL_H + GAP) + y,
-      w,
-      h,
-    };
-  }, [petH, petW, shots]);
+    x = Math.min(Math.max(x, 4), geom.cellW - w - 4);
+    y = Math.min(Math.max(y, 4), geom.cellH - h - 4);
+    return { x: cell.x + x, y: cell.y + y, w, h };
+  }, [petH, petW, shots, geom]);
 
   return (
     <div className="flex flex-col items-center gap-6 w-full">
       <div className="text-center">
         <h2 className="text-2xl font-head font-extrabold text-ink">스트립 미리보기 & 저장</h2>
         <p className="text-ink/70 mt-1 text-sm">
-          헤더의 A/B 토글로 차분한 사진관 / 키치 부스 톤을 바꿀 수 있어요.
+          색과 레이아웃을 고르고 다운로드해보세요.
         </p>
       </div>
 
@@ -289,7 +302,7 @@ export function FrameDownload() {
           scaleY={displayScale}
         >
           <Layer>
-            <Rect x={0} y={0} width={STRIP_W} height={STRIP_H} fill={frame.bg} />
+            <Rect x={0} y={0} width={STRIP_W} height={geom.stripH} fill={frame.bg} />
 
             <Text
               x={0}
@@ -304,26 +317,32 @@ export function FrameDownload() {
             />
 
             {[0, 1, 2, 3].map((i) => {
-              const cellY = HEADER_H + i * (CELL_H + GAP);
+              const cell = geom.cellOf(i);
               const img = shotImages[i];
               return (
                 <Group key={i}>
                   <Rect
-                    x={CELL_X - 1.5}
-                    y={cellY - 1.5}
-                    width={CELL_W + 3}
-                    height={CELL_H + 3}
+                    x={cell.x - 1.5}
+                    y={cell.y - 1.5}
+                    width={geom.cellW + 3}
+                    height={geom.cellH + 3}
                     stroke={frame.innerBorderColor}
                     strokeWidth={1.5}
                   />
-                  <Rect x={CELL_X} y={cellY} width={CELL_W} height={CELL_H} fill="#000" />
+                  <Rect
+                    x={cell.x}
+                    y={cell.y}
+                    width={geom.cellW}
+                    height={geom.cellH}
+                    fill="#000"
+                  />
                   {img && (
                     <KonvaImage
                       image={img}
-                      x={CELL_X}
-                      y={cellY}
-                      width={CELL_W}
-                      height={CELL_H}
+                      x={cell.x}
+                      y={cell.y}
+                      width={geom.cellW}
+                      height={geom.cellH}
                     />
                   )}
                 </Group>
@@ -345,20 +364,78 @@ export function FrameDownload() {
                 verticalAlign="middle"
               />
             )}
-
-            <Text
-              x={0}
-              y={STRIP_H - FOOTER_H + 18}
-              width={STRIP_W}
-              text={`${dateString}   ·   PET 4 CUT   ·   ${serial}`}
-              fontSize={11}
-              fontFamily={frame.metaFont}
-              fill={frame.meta}
-              align="center"
-              letterSpacing={2}
-            />
           </Layer>
         </Stage>
+      </div>
+
+      <div className="w-full max-w-md flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs font-mono tracking-wider text-ink/70">프레임 색</span>
+          <div role="radiogroup" aria-label="프레임 색" className="flex gap-2">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={frameColor === 'black'}
+              onClick={() => setFrameColor('black')}
+              disabled={encoding !== null}
+              className={
+                frameColor === 'black'
+                  ? 'px-3 py-1.5 text-xs font-mono font-bold tracking-wider bg-ink text-surface border-2 border-ink'
+                  : 'px-3 py-1.5 text-xs font-mono font-bold tracking-wider bg-surface text-ink border-2 border-ink hover:bg-ink/5'
+              }
+            >
+              검정
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={frameColor === 'white'}
+              onClick={() => setFrameColor('white')}
+              disabled={encoding !== null}
+              className={
+                frameColor === 'white'
+                  ? 'px-3 py-1.5 text-xs font-mono font-bold tracking-wider bg-ink text-surface border-2 border-ink'
+                  : 'px-3 py-1.5 text-xs font-mono font-bold tracking-wider bg-surface text-ink border-2 border-ink hover:bg-ink/5'
+              }
+            >
+              화이트
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs font-mono tracking-wider text-ink/70">레이아웃</span>
+          <div role="radiogroup" aria-label="레이아웃" className="flex gap-2">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={cutLayout === '1x4'}
+              onClick={() => setCutLayout('1x4')}
+              disabled={encoding !== null}
+              className={
+                cutLayout === '1x4'
+                  ? 'px-3 py-1.5 text-xs font-mono font-bold tracking-wider bg-ink text-surface border-2 border-ink'
+                  : 'px-3 py-1.5 text-xs font-mono font-bold tracking-wider bg-surface text-ink border-2 border-ink hover:bg-ink/5'
+              }
+            >
+              세로 1×4
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={cutLayout === '2x2'}
+              onClick={() => setCutLayout('2x2')}
+              disabled={encoding !== null}
+              className={
+                cutLayout === '2x2'
+                  ? 'px-3 py-1.5 text-xs font-mono font-bold tracking-wider bg-ink text-surface border-2 border-ink'
+                  : 'px-3 py-1.5 text-xs font-mono font-bold tracking-wider bg-surface text-ink border-2 border-ink hover:bg-ink/5'
+              }
+            >
+              격자 2×2
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-2 flex-wrap justify-center">

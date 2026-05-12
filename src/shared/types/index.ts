@@ -3,6 +3,14 @@ export type EditorStep = 1 | 2 | 3 | 4;
 // A/B brand-renewal toggle. A = 차분한 사진관, B = 키치 부스.
 export type ThemeVersion = 'A' | 'B';
 
+// Strip cut arrangement. 1×4 = classic photo-booth column, 2×2 = grid
+// that fits one phone screen at a glance.
+export type CutLayout = '1x4' | '2x2';
+
+// Downloaded strip frame color. Letter color is derived automatically for
+// contrast (dark bg → cream text, light bg → dark text).
+export type FrameColor = 'black' | 'white';
+
 // Pet position relative to the camera viewport. (x, y) is the pet node's center,
 // normalized to 0..1 of the square viewport edge.
 export interface PetPosition {
@@ -53,6 +61,8 @@ export interface EditorState {
   cutFrames: CutFrames[];
   selectedBorderId: string | null;
   speechText: string;
+  cutLayout: CutLayout;
+  frameColor: FrameColor;
   setStep: (step: EditorStep) => void;
   setPetImageUrl: (url: string | null) => void;
   setPetOriginalFile: (file: File | null) => void;
@@ -63,5 +73,7 @@ export interface EditorState {
   clearCutFrames: () => void;
   setSelectedBorderId: (id: string | null) => void;
   setSpeechText: (s: string) => void;
+  setCutLayout: (layout: CutLayout) => void;
+  setFrameColor: (color: FrameColor) => void;
   reset: () => void;
 }
