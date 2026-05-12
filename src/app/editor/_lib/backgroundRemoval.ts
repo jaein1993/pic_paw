@@ -26,11 +26,11 @@ export async function removeImageBackground(
   let lastStage: BackgroundRemovalStage | null = null;
 
   const config: Config = {
-    // Quantized int8 model — ~10MB instead of ~45MB (fp16). Tried fp16 on
-    // 2026-05-09 but the edge-detail improvement on pet fur was not
-    // visually noticeable at our cell size while inference was clearly
-    // slower, so reverted. quint8 stays the right trade-off here.
-    model: 'isnet_quint8',
+    // fp16 model (~45MB). Earlier reverted to quint8 on 2026-05-09 because
+    // the edge-detail gain wasn't visible at smaller cell sizes. PNG 1×4
+    // cells now export at 960×960 (3× pixelRatio), so retry fp16 here —
+    // if the gain is still not visible, roll back.
+    model: 'isnet_fp16',
     output: {
       format: 'image/png',
       quality: 1.0,

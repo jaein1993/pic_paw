@@ -57,7 +57,7 @@ export function PetUpload() {
       <div className="text-center">
         <h2 className="text-2xl font-bold text-text-primary">반려동물 사진 업로드</h2>
         <p className="text-text-secondary mt-1">
-          AI가 자동으로 배경을 제거해드려요. (첫 사용 시 약 10MB 모델 다운로드)
+          AI가 자동으로 배경을 제거해드려요. (첫 사용 시 약 45MB 모델 다운로드)
         </p>
       </div>
 

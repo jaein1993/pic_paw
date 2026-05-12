@@ -16,7 +16,7 @@ export function BackgroundRemovalProgress({
     stage === 'downloading' ? 'AI 모델 다운로드 중…' : 'AI 배경 분석 중…';
   const sub =
     stage === 'downloading' && isFirstUse
-      ? '약 10MB · 첫 사용 시에만'
+      ? '약 45MB · 첫 사용 시에만'
       : '잠시만 기다려주세요';
 
   return (
