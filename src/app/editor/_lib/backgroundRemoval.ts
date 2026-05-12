@@ -4,13 +4,18 @@ export type BackgroundRemovalStage = 'downloading' | 'processing';
 
 interface RemoveBackgroundOptions {
   onStage?: (stage: BackgroundRemovalStage) => void;
+  onProgress?: (percent: number) => void;
 }
 
 // The library reports progress with a `key` (e.g. "fetch:onnx-model",
-// "compute:inference"). We don't show a numeric % to the user because each
-// internal phase resets current/total to 0 and the bar jitters confusingly.
-// Instead we collapse the keys into two coarse stages and only emit when
-// the stage actually changes.
+// "compute:inference"). Each phase resets current/total to 0 internally,
+// so we map keys into two coarse stages and stretch each stage into a
+// fixed slice of the overall progress bar (monotonic, never decreasing).
+const STAGE_WEIGHTS: Record<BackgroundRemovalStage, { start: number; span: number }> = {
+  downloading: { start: 0, span: 70 },
+  processing: { start: 70, span: 30 },
+};
+
 function stageFromKey(key: string): BackgroundRemovalStage {
   const k = key.toLowerCase();
   if (k.includes('fetch') || k.includes('download') || k.includes('load') || k.includes('model')) {
@@ -24,6 +29,7 @@ export async function removeImageBackground(
   opts: RemoveBackgroundOptions = {}
 ): Promise<Blob> {
   let lastStage: BackgroundRemovalStage | null = null;
+  let lastPercent = 0;
 
   const config: Config = {
     // fp16 model (~45MB). Earlier reverted to quint8 on 2026-05-09 because
@@ -35,11 +41,20 @@ export async function removeImageBackground(
       format: 'image/png',
       quality: 1.0,
     },
-    progress: (key: string) => {
+    progress: (key: string, current: number, total: number) => {
       const stage = stageFromKey(key);
       if (stage !== lastStage) {
         lastStage = stage;
         opts.onStage?.(stage);
+      }
+      const w = STAGE_WEIGHTS[stage];
+      const stageRatio = total > 0 ? current / total : 0;
+      const overall = Math.round(w.start + stageRatio * w.span);
+      // monotonic — never let the bar move backward
+      const next = Math.max(lastPercent, overall);
+      if (next !== lastPercent) {
+        lastPercent = next;
+        opts.onProgress?.(next);
       }
     },
   };

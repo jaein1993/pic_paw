@@ -5,11 +5,13 @@ import type { BackgroundRemovalStage } from '@/app/editor/_lib/backgroundRemoval
 
 interface BackgroundRemovalProgressProps {
   stage: BackgroundRemovalStage | null;
+  progress: number;
   isFirstUse?: boolean;
 }
 
 export function BackgroundRemovalProgress({
   stage,
+  progress,
   isFirstUse = false,
 }: BackgroundRemovalProgressProps) {
   const title =
@@ -26,6 +28,15 @@ export function BackgroundRemovalProgress({
       <div className="text-center">
         <p className="font-semibold text-text-primary text-lg">{title}</p>
         <p className="text-sm text-text-secondary mt-1">{sub}</p>
+      </div>
+
+      <div className="w-full max-w-xs">
+        <div className="h-2 bg-black/10 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-brand-primary rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
       </div>
 
       <p className="text-xs text-text-secondary text-center max-w-xs">

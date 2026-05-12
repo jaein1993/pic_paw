@@ -14,7 +14,7 @@ export function PetUpload() {
     useEditorState();
   const [pendingFile, setPendingFile] = useState<File | null>(petOriginalFile);
   const [isFirstUse, setIsFirstUse] = useState(false);
-  const { result, stage, error, run } = useBackgroundRemoval(pendingFile);
+  const { result, stage, progressPercent, error, run } = useBackgroundRemoval(pendingFile);
   const resultUrlRef = useRef<string | null>(null);
 
   const handleUpload = async (file: File) => {
@@ -83,6 +83,7 @@ export function PetUpload() {
       {isProcessing && (
         <BackgroundRemovalProgress
           stage={stage}
+          progress={progressPercent}
           isFirstUse={isFirstUse}
         />
       )}
