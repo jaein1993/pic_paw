@@ -19,7 +19,7 @@ export function HeroSection() {
         <div className="lg:pt-10">
           <span className="inline-flex items-center gap-2 mb-7 px-2.5 py-1 font-mono text-[11px] tracking-[0.2em] text-ink bg-accent-2 border-[2.5px] border-ink shadow-[3px_3px_0_#1A1714] -rotate-2">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent" />
-            우리집 강아지랑 부스 한 컷 ★
+            우리집 고양이, 강아지랑 사진 한 컷 ★
           </span>
 
           <h1 className="font-head font-extrabold text-ink leading-[0.95] tracking-[-0.04em] mb-6 text-[56px] sm:text-[72px] lg:text-[88px]">
@@ -46,7 +46,7 @@ export function HeroSection() {
           </h1>
 
           <p className="text-[17px] leading-[1.7] text-ink/80 max-w-md mb-9">
-            집에서 강아지 사진 한 장 올리고,<br />
+            집에서 반려동물 사진 한 장 올리고,<br />
             웹캠으로 셀카 4번. 우리 둘이 같이 찍은<br />
             사진 부스 한 장이 인쇄돼요.
           </p>
